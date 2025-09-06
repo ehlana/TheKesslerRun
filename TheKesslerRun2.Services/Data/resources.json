@@ -1,0 +1,16 @@
+[
+  {
+    "Id": "ore",
+    "DisplayName": "Ore",
+    "BaseMiningDifficulty": 1.0,
+    "BaseValue": 10,
+    "Color": "#A0A0A0"
+  },
+  {
+    "Id": "crystal",
+    "DisplayName": "Crystal",
+    "BaseMiningDifficulty": 2.5,
+    "BaseValue": 50,
+    "Color": "#00FFFF"
+  }
+]

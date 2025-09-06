@@ -1,0 +1,11 @@
+﻿<UserControl x:Class="TheKesslerRun2.Views.DronesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:TheKesslerRun2.Views" xmlns:viewmodels="clr-namespace:TheKesslerRun2.ViewModels"
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=viewmodels:DronesViewModel, IsDesignTimeCreatable=True}">
+    <Grid>
+        <Label>Drones Go Here!</Label>
+    </Grid>
+</UserControl>

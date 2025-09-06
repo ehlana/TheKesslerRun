@@ -6,4 +6,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\TheKesslerRun2.DTOs\TheKesslerRun2.DTOs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Data\resources.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -11,6 +11,7 @@ public class Game
 
     public void StartGame(IHeartbeatProvider heartbeatProvider)
     {
+        ResourceManager.Instance.LoadFromFile(Path.Combine("Data", "resources.json"));
         HeartbeatService = new HeartbeatService(heartbeatProvider);
         _services.Add(new ScanService());
     }

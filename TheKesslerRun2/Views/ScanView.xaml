@@ -4,35 +4,66 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:TheKesslerRun2.Views" xmlns:viewmodels="clr-namespace:TheKesslerRun2.ViewModels"
-             mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=viewmodels:ScanViewModel, IsDesignTimeCreatable=True}"
-             Height="300" Width="400">
-    <Grid Margin="10">
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=viewmodels:ScanViewModel, IsDesignTimeCreatable=True}">
+    <Grid Margin="10" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="3*"/>
+        </Grid.ColumnDefinitions>
 
         <!-- Max distance -->
-        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10" Grid.Column="0">
             <TextBlock Text="Max Distance:" FontWeight="Bold"/>
             <TextBlock Text="{Binding MaxDistance}" Margin="5,0,0,0"/>
         </StackPanel>
 
         <!-- Progress bar -->
-        <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,10">
+        <Grid Grid.Row="1" Margin="0,0,5,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
             <TextBlock Text="Recharge:" FontWeight="Bold" VerticalAlignment="Center"/>
-            <ProgressBar Width="200" Height="20" Margin="5,0,0,0"
-                         Minimum="0"
-                         Maximum="{Binding RechargeTime, Mode=OneWay}" 
-                         Value="{Binding CurrentRechargeProgress}" />
-            <TextBlock Text="{Binding CurrentRechargeProgress, StringFormat={}{0:F1}s}" Margin="5,0,0,0"/>
-        </StackPanel>
+            <ProgressBar Grid.Column="1"
+                 Height="20" Margin="5,0"
+                 Minimum="0"
+                 Maximum="{Binding RechargeTime, Mode=OneWay}"
+                 Value="{Binding CurrentRechargeProgress}"/>
+            <TextBlock Grid.Column="2"
+               Text="{Binding CurrentRechargeProgress, StringFormat={}{0:F1}s}"
+               Margin="5,0,0,0"/>
+        </Grid>
 
         <!-- Scan button -->
-        <Button Grid.Row="2" Content="Scan" Height="30" Width="100"
+        <Button Grid.Row="2" Grid.Column="0" Content="Scan" Height="30" Width="100"
                 HorizontalAlignment="Left"
                 IsEnabled="{Binding IsCharged}"
                 Command="{Binding StartScanCommand}"/>
+
+        <GridSplitter Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="Gray"/>
+
+        <Grid Grid.Row="0" Grid.RowSpan="3" Grid.Column="2" Margin="5,0,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Text="Fields in Range:" FontWeight="Bold" Grid.Row="0" Margin="0,0,0,5"/>
+            <DataGrid Grid.Row="1" ItemsSource="{Binding FieldsInRange}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                      IsReadOnly="True">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Resource Type" Binding="{Binding ResourceType}" />
+                    <DataGridTextColumn Header="Resource Amount" Binding="{Binding ResourceAmount}" />
+                    <DataGridTextColumn Header="Distance From Centre" Binding="{Binding DistanceFromCentre}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
     </Grid>
 </UserControl>

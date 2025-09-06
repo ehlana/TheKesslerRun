@@ -8,7 +8,7 @@ public class WpfHeartbeatProvider : IHeartbeatProvider
     private DateTime _lastTick;
     public event Action<double>? Tick;
 
-    public WpfHeartbeatProvider(int intervalMs = 250)
+    public WpfHeartbeatProvider(int intervalMs = 100)
     {
         _timer = new DispatcherTimer
         {

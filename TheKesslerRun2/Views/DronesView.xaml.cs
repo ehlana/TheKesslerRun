@@ -2,11 +2,12 @@
 using TheKesslerRun2.ViewModels;
 
 namespace TheKesslerRun2.Views;
-public partial class ScanView : UserControl
+
+public partial class DronesView : UserControl
 {
-    public ScanView()
+    public DronesView(DronesViewModel vm)
     {
         InitializeComponent();
-        DataContext = App.Current.GetService<ScanViewModel>();
+        DataContext = vm;
     }
 }

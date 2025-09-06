@@ -24,8 +24,12 @@ internal class ScanService : BaseService, IMessageReceiver<Scan.BeginScanMessage
 
     public void Receive(Scan.BeginScanMessage message)
     {
-        // Begin the scan process
         _secTilCharge = _chargeInterval;
-        MessageBus.Publish(new Scan.ScanCompletedMessage());
+
+        var fieldsInRange = ResourceFieldService.Instance.FindNewFieldsInRange(_scanRange)
+            .Select(f => new DTOs.ResourceFieldDto(f.Id, f.ResourceAmount, f.ResourceType, f.MiningDifficulty, f.DistanceFromCentre))
+            .ToList();
+
+        MessageBus.Publish(new Scan.CompletedMessage(fieldsInRange));
     }
 }
