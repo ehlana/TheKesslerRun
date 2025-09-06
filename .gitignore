@@ -1,0 +1,57 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio cache
+.vs/
+
+# NuGet
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+!**/[Pp]ackages/tools/
+
+# Rider / VS Code
+.idea/
+.vscode/
+*.code-workspace
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# Misc
+*.dbmdl
+*.bak
+*.backup
+*.ldf
+*.mdf
+*.log
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Publish profiles
+[Pp]ublishProfiles/
+*.pubxml
+*.pubxml.user
+
+# .NET artifacts
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Profiling
+*.psess
+*.vsp
+*.vspx
+*.sap

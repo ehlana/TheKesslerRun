@@ -1,0 +1,38 @@
+﻿<UserControl x:Class="TheKesslerRun2.Views.ScanView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:TheKesslerRun2.Views" xmlns:viewmodels="clr-namespace:TheKesslerRun2.ViewModels"
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=viewmodels:ScanViewModel, IsDesignTimeCreatable=True}"
+             Height="300" Width="400">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Max distance -->
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock Text="Max Distance:" FontWeight="Bold"/>
+            <TextBlock Text="{Binding MaxDistance}" Margin="5,0,0,0"/>
+        </StackPanel>
+
+        <!-- Progress bar -->
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,10">
+            <TextBlock Text="Recharge:" FontWeight="Bold" VerticalAlignment="Center"/>
+            <ProgressBar Width="200" Height="20" Margin="5,0,0,0"
+                         Minimum="0"
+                         Maximum="{Binding RechargeTime, Mode=OneWay}" 
+                         Value="{Binding CurrentRechargeProgress}" />
+            <TextBlock Text="{Binding CurrentRechargeProgress, StringFormat={}{0:F1}s}" Margin="5,0,0,0"/>
+        </StackPanel>
+
+        <!-- Scan button -->
+        <Button Grid.Row="2" Content="Scan" Height="30" Width="100"
+                HorizontalAlignment="Left"
+                IsEnabled="{Binding IsCharged}"
+                Command="{Binding StartScanCommand}"/>
+    </Grid>
+</UserControl>

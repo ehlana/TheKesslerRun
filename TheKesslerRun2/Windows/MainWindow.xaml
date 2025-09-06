@@ -1,0 +1,26 @@
+﻿<Window x:Class="TheKesslerRun2.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TheKesslerRun2.Views"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <DockingManager x:Name="DockManager">
+            <DockingManager.Theme>
+                <Vs2013LightTheme />
+            </DockingManager.Theme>
+
+            <LayoutRoot>
+                <LayoutPanel Orientation="Horizontal">
+                    <LayoutDocumentPane>
+                        <LayoutDocument Title="Scan View" CanClose="False">
+                            <local:ScanView />
+                        </LayoutDocument>
+                    </LayoutDocumentPane>
+                </LayoutPanel>
+            </LayoutRoot>
+        </DockingManager>
+    </Grid>
+</Window>
