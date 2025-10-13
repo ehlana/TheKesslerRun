@@ -43,7 +43,7 @@ internal class DroneInstance(double maxCharge = 1000, double speed = 5.0, double
         return outboundCost + returnCost <= CurrentCharge;
     }
 
-    public double LoadedPc => CurrentCargo / MaxCargoSize;
+    public double LoadedPc => MaxCargoSize <= 0 ? 0 : CurrentCargo / MaxCargoSize;
 }
 
 public enum DroneState
