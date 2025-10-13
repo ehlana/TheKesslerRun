@@ -1,8 +1,11 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using TheKesslerRun2.DTOs;
+using TheKesslerRun2.Services;
 using TheKesslerRun2.Services.Interfaces;
 using static TheKesslerRun2.Services.Messages.Drone;
 using static TheKesslerRun2.Services.Messages.Scan;
@@ -12,15 +15,24 @@ namespace TheKesslerRun2.ViewModels;
 public partial class DronesViewModel : ObservableObject,
     IMessageReceiver<FleetStatusMessage>,
     IMessageReceiver<CompletedMessage>,
+    IMessageReceiver<FieldsKnownMessage>,
     IMessageReceiver<LaunchFailedMessage>,
     IMessageReceiver<LaunchedMessage>,
     IMessageReceiver<ArrivedAtDestinationMessage>,
     IMessageReceiver<MiningCompletedMessage>,
     IMessageReceiver<ArrivedAtCentreMessage>,
     IMessageReceiver<OutOfChargeMessage>,
-    IMessageReceiver<LostMessage>
+    IMessageReceiver<LostMessage>,
+    IHeartbeatReceiver
 {
     private readonly IMessageBus _messageBus;
+    private readonly List<DroneStatusDto> _lastFleetSnapshot = [];
+
+    private int _lastReportedFleetSeconds = -1;
+    private double? _secondsSinceFleetChange;
+    private bool _trackingFleetStatusMessage;
+    private string _lastFleetSummary = "Awaiting fleet telemetry";
+    private int _lastLostCount;
 
     [ObservableProperty]
     private ObservableCollection<DroneStatusDto> _drones = [];
@@ -44,8 +56,11 @@ public partial class DronesViewModel : ObservableObject,
     {
         _messageBus = messageBus;
 
+        Game.Instance.HeartbeatService!.AddReceiver(this);
+
         messageBus.Subscribe<FleetStatusMessage>(this);
         messageBus.Subscribe<CompletedMessage>(this);
+        messageBus.Subscribe<FieldsKnownMessage>(this);
         messageBus.Subscribe<LaunchFailedMessage>(this);
         messageBus.Subscribe<LaunchedMessage>(this);
         messageBus.Subscribe<ArrivedAtDestinationMessage>(this);
@@ -53,13 +68,28 @@ public partial class DronesViewModel : ObservableObject,
         messageBus.Subscribe<ArrivedAtCentreMessage>(this);
         messageBus.Subscribe<OutOfChargeMessage>(this);
         messageBus.Subscribe<LostMessage>(this);
+
+        _messageBus.Publish(new RequestKnownFieldsMessage());
     }
 
     public void Receive(FleetStatusMessage message)
     {
+        bool fleetChanged = FleetChanged(message);
+
         SyncDrones(message.Drones);
         DronesLost = message.LostCount;
         RefreshSelectedDroneReference();
+        StoreFleetSnapshot(message);
+
+        if (fleetChanged)
+        {
+            _secondsSinceFleetChange = 0;
+            _lastReportedFleetSeconds = -1;
+            _lastFleetSummary = BuildFleetSummary(message);
+            _trackingFleetStatusMessage = true;
+            ApplyFleetStatusMessage(force: true);
+        }
+
         SendDroneCommand.NotifyCanExecuteChanged();
     }
 
@@ -73,13 +103,26 @@ public partial class DronesViewModel : ObservableObject,
 
         if (fields.Count > 0)
         {
-            StatusMessage = $"Detected {fields.Count} new debris fields.";
+            SetStatusMessage($"Detected {fields.Count} new debris fields.");
+        }
+
+        RefreshSelectedFieldReference();
+    }
+
+    public void Receive(FieldsKnownMessage message)
+    {
+        var fields = message.Fields.ToList();
+        ReplaceFields(fields);
+
+        if (fields.Count > 0)
+        {
+            SetStatusMessage($"Tracking {fields.Count} known debris fields.");
         }
     }
 
     public void Receive(LaunchFailedMessage message)
     {
-        StatusMessage = message.Reason;
+        SetStatusMessage(message.Reason);
     }
 
     public void Receive(LaunchedMessage message)
@@ -89,37 +132,37 @@ public partial class DronesViewModel : ObservableObject,
             ? "target"
             : $"{field.ResourceType} field ({field.DistanceFromCentre:0} km)";
 
-        StatusMessage = $"Drone launched toward {fieldLabel}.";
+        SetStatusMessage($"Drone launched toward {fieldLabel}.");
         RefreshSelectedDroneReference(message.DroneId);
     }
 
     public void Receive(ArrivedAtDestinationMessage message)
     {
-        StatusMessage = "Drone has arrived at the debris field.";
+        SetStatusMessage("Drone has arrived at the debris field.");
         RefreshSelectedDroneReference(message.DroneId);
     }
 
     public void Receive(MiningCompletedMessage message)
     {
-        StatusMessage = "Drone has completed mining and is returning.";
+        SetStatusMessage("Drone has completed mining and is returning.");
         RefreshSelectedDroneReference(message.DroneId);
     }
 
     public void Receive(ArrivedAtCentreMessage message)
     {
-        StatusMessage = "Drone has returned to the recycling centre.";
+        SetStatusMessage("Drone has returned to the recycling centre.");
         RefreshSelectedDroneReference(message.DroneId);
     }
 
     public void Receive(OutOfChargeMessage message)
     {
-        StatusMessage = "Drone has run out of charge!";
+        SetStatusMessage("Drone has run out of charge!");
         RefreshSelectedDroneReference(message.DroneId);
     }
 
     public void Receive(LostMessage message)
     {
-        StatusMessage = "Contact lost with a drone.";
+        SetStatusMessage("Contact lost with a drone.");
         RefreshSelectedDroneReference(message.DroneId);
     }
 
@@ -132,10 +175,21 @@ public partial class DronesViewModel : ObservableObject,
         }
 
         _messageBus.Publish(new LaunchMessage(SelectedDrone.Id, SelectedField.Id));
-        StatusMessage = $"Requesting launch of {SelectedDrone.DisplayName} to {SelectedField.ResourceType} field.";
+        SetStatusMessage($"Requesting launch of {SelectedDrone.DisplayName} to {SelectedField.ResourceType} field.");
     }
 
     private bool CanSendDrone() => SelectedDrone?.IsIdle == true && SelectedField is not null;
+
+    public void Tick(double deltaSeconds)
+    {
+        if (!_trackingFleetStatusMessage || _secondsSinceFleetChange is null)
+        {
+            return;
+        }
+
+        _secondsSinceFleetChange += deltaSeconds;
+        ApplyFleetStatusMessage();
+    }
 
     private void SyncDrones(IReadOnlyList<DroneStatusDto> updated)
     {
@@ -190,6 +244,18 @@ public partial class DronesViewModel : ObservableObject,
         KnownFields.Insert(insertIndex, field);
     }
 
+    private void ReplaceFields(IEnumerable<ResourceFieldDto> fields)
+    {
+        KnownFields.Clear();
+
+        foreach (var field in fields.OrderBy(f => f.DistanceFromCentre))
+        {
+            KnownFields.Add(field);
+        }
+
+        RefreshSelectedFieldReference();
+    }
+
     private int FindDroneIndex(Guid id)
     {
         for (int i = 0; i < Drones.Count; i++)
@@ -216,6 +282,78 @@ public partial class DronesViewModel : ObservableObject,
         {
             SelectedDrone = updated;
         }
+    }
+
+    private void RefreshSelectedFieldReference()
+    {
+        if (SelectedField is null)
+        {
+            return;
+        }
+
+        var updated = KnownFields.FirstOrDefault(f => f.Id == SelectedField.Id);
+        SelectedField = updated;
+    }
+
+    private bool FleetChanged(FleetStatusMessage message)
+    {
+        if (_lastFleetSnapshot.Count != message.Drones.Count || _lastLostCount != message.LostCount)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < message.Drones.Count; i++)
+        {
+            if (!_lastFleetSnapshot[i].Equals(message.Drones[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void StoreFleetSnapshot(FleetStatusMessage message)
+    {
+        _lastFleetSnapshot.Clear();
+        foreach (var drone in message.Drones)
+        {
+            _lastFleetSnapshot.Add(drone);
+        }
+
+        _lastLostCount = message.LostCount;
+    }
+
+    private string BuildFleetSummary(FleetStatusMessage message)
+    {
+        int total = message.Drones.Count;
+        int idle = message.Drones.Count(d => d.IsIdle);
+        return total == 0
+            ? "No drones available"
+            : $"{idle}/{total} drones idle";
+    }
+
+    private void ApplyFleetStatusMessage(bool force = false)
+    {
+        if (!_trackingFleetStatusMessage || _secondsSinceFleetChange is null)
+        {
+            return;
+        }
+
+        int seconds = (int)Math.Floor(_secondsSinceFleetChange.Value);
+        if (!force && seconds == _lastReportedFleetSeconds)
+        {
+            return;
+        }
+
+        _lastReportedFleetSeconds = seconds;
+        StatusMessage = $"{_lastFleetSummary} ({seconds}s since last change)";
+    }
+
+    private void SetStatusMessage(string message)
+    {
+        _trackingFleetStatusMessage = false;
+        StatusMessage = message;
     }
 
     partial void OnSelectedDroneChanged(DroneStatusDto? value)

@@ -2,7 +2,9 @@
 using TheKesslerRun2.Services.Messages;
 
 namespace TheKesslerRun2.Services.Services;
-internal class ScanService : BaseService, IMessageReceiver<Scan.BeginScanMessage>
+internal class ScanService : BaseService,
+    IMessageReceiver<Scan.BeginScanMessage>,
+    IMessageReceiver<Scan.RequestKnownFieldsMessage>
 {
     private double _secTilCharge = 0.0;
     private double _chargeInterval = 5.0;
@@ -31,5 +33,20 @@ internal class ScanService : BaseService, IMessageReceiver<Scan.BeginScanMessage
             .ToList();
 
         MessageBus.Publish(new Scan.CompletedMessage(fieldsInRange));
+        BroadcastKnownFields();
+    }
+
+    public void Receive(Scan.RequestKnownFieldsMessage message)
+    {
+        BroadcastKnownFields();
+    }
+
+    private void BroadcastKnownFields()
+    {
+        var allFields = ResourceFieldService.Instance.GetAllFields()
+            .Select(f => new DTOs.ResourceFieldDto(f.Id, f.ResourceAmount, f.ResourceType, f.MiningDifficulty, f.DistanceFromCentre))
+            .ToList();
+
+        MessageBus.Publish(new Scan.FieldsKnownMessage(allFields));
     }
 }
