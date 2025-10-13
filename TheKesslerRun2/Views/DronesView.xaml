@@ -34,8 +34,8 @@
                         <GridViewColumn Header="Charge" Width="150">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <ProgressBar Width="90" Height="14" Value="{Binding ChargePercent}" Maximum="1" Margin="0,0,6,0" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                                        <ProgressBar Width="90" Height="14" Value="{Binding ChargePercent}" Maximum="1" />
                                         <TextBlock Text="{Binding ChargePercent, StringFormat={}{0:P0}}" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -44,10 +44,10 @@
                         <GridViewColumn Header="Cargo" Width="160">
                             <GridViewColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <ProgressBar Width="90" Height="14" Value="{Binding CargoPercent}" Maximum="1" Margin="0,0,6,0" />
-                                        <TextBlock Text="{Binding CurrentCargo, StringFormat={}{0:0}}" Margin="0,0,6,0" />
-                                        <TextBlock Text="/" Margin="0,0,6,0" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
+                                        <ProgressBar Width="90" Height="14" Value="{Binding CargoPercent}" Maximum="1" />
+                                        <TextBlock Text="{Binding CurrentCargo, StringFormat={}{0:0}}" />
+                                        <TextBlock Text="/" />
                                         <TextBlock Text="{Binding MaxCargo, StringFormat={}{0:0}}" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -86,8 +86,8 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Vertical">
-                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                <StackPanel Orientation="Vertical" Spacing="4">
+                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
                     <TextBlock Text="{Binding DronesLost, StringFormat=Total drones lost: {0}}" />
                 </StackPanel>
                 <Button Grid.Column="1"
