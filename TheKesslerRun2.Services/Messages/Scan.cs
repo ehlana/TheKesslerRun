@@ -6,4 +6,6 @@ public static class Scan
     public record BeginScanMessage;
     public record CompletedMessage(IEnumerable<ResourceFieldDto> FieldsInRange);
     public record RechargeCompletedMessage;
+    public record RequestKnownFieldsMessage;
+    public record FieldsKnownMessage(IEnumerable<ResourceFieldDto> Fields);
 }
