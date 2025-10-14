@@ -15,5 +15,6 @@ public class Game
         HeartbeatService = new HeartbeatService(heartbeatProvider);
         _services.Add(new ScanService());
         _services.Add(new DronesService());
+        _services.Add(new RecyclingCentreService());
     }
 }

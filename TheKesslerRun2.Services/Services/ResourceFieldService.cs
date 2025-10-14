@@ -27,7 +27,7 @@ internal class ResourceFieldService
         {
             if(_resourceFields.Count >= _maxActiveFields) break;
             var distance = _random.NextDouble() * scanRange;
-            string resourceType = _random.NextDouble() < 0.7 ? "ore" : "crystals";
+            string resourceType = _random.NextDouble() < 0.7 ? "ore" : "crystal";
 
             double amount = _random.Next(500, 2000);
             double difficulty = resourceType == "ore" ? _random.NextDouble() * 2 + 0.5 : _random.NextDouble() * 3 + 1.0;

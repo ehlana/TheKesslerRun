@@ -36,10 +36,12 @@ public partial class App : Application
         services.AddSingleton<MainWindow>();
         services.AddSingleton<ScanView>();
         services.AddSingleton<DronesView>();
+        services.AddSingleton<RecyclingCentreView>();
 
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<ScanViewModel>();
         services.AddSingleton<DronesViewModel>();
+        services.AddSingleton<RecyclingCentreViewModel>();
 
         services.AddSingleton(TypedMessageBus.Instance);
     }

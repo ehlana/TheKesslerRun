@@ -9,6 +9,7 @@ using TheKesslerRun2.Services;
 using TheKesslerRun2.Services.Interfaces;
 using static TheKesslerRun2.Services.Messages.Drone;
 using static TheKesslerRun2.Services.Messages.Scan;
+using static TheKesslerRun2.Services.Messages.RecyclingCentre;
 
 namespace TheKesslerRun2.ViewModels;
 
@@ -23,6 +24,7 @@ public partial class DronesViewModel : ObservableObject,
     IMessageReceiver<ArrivedAtCentreMessage>,
     IMessageReceiver<OutOfChargeMessage>,
     IMessageReceiver<LostMessage>,
+    IMessageReceiver<CargoReceivedMessage>,
     IHeartbeatReceiver
 {
     private readonly IMessageBus _messageBus;
@@ -68,6 +70,7 @@ public partial class DronesViewModel : ObservableObject,
         messageBus.Subscribe<ArrivedAtCentreMessage>(this);
         messageBus.Subscribe<OutOfChargeMessage>(this);
         messageBus.Subscribe<LostMessage>(this);
+        messageBus.Subscribe<CargoReceivedMessage>(this);
 
         _messageBus.Publish(new RequestKnownFieldsMessage());
     }
@@ -164,6 +167,12 @@ public partial class DronesViewModel : ObservableObject,
     public void Receive(LostMessage message)
     {
         SetStatusMessage("Contact lost with a drone.");
+        RefreshSelectedDroneReference(message.DroneId);
+    }
+
+    public void Receive(CargoReceivedMessage message)
+    {
+        SetStatusMessage($"Drone delivered {message.AmountDelivered:0} units of {message.Resource.DisplayName} to the recycling centre.");
         RefreshSelectedDroneReference(message.DroneId);
     }
 

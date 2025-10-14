@@ -3,6 +3,7 @@ using TheKesslerRun2.DTOs;
 using TheKesslerRun2.Services.Interfaces;
 using TheKesslerRun2.Services.Model;
 using static TheKesslerRun2.Services.Messages.Drone;
+using static TheKesslerRun2.Services.Messages.RecyclingCentre;
 
 namespace TheKesslerRun2.Services.Services;
 
@@ -169,6 +170,14 @@ internal partial class DronesService : BaseService, IMessageReceiver<LaunchMessa
             drone.State = DroneState.Charging;
             drone.DistanceFromCentre = 0;
             drone.DestinationId = null;
+            double deliveredCargo = drone.CurrentCargo;
+            string deliveredType = drone.CargoType;
+
+            if (deliveredCargo > 0 && !string.IsNullOrWhiteSpace(deliveredType))
+            {
+                MessageBus.Publish(new DepositCargoMessage(drone.Id, deliveredType, deliveredCargo));
+            }
+
             drone.CurrentCharge = drone.MaxCharge;
             drone.CurrentCargo = 0;
             drone.CargoType = string.Empty;
