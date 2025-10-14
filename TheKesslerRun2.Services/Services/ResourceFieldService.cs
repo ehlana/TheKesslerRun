@@ -15,6 +15,8 @@ internal class ResourceFieldService
 
     public ResourceField? GetResourceFieldById(Guid id) => _resourceFields.FirstOrDefault(rf => rf.Id == id);
 
+    internal IReadOnlyList<ResourceField> GetAllFields() => _resourceFields.ToList();
+
     internal IEnumerable<ResourceField> FindNewFieldsInRange(double scanRange)
     {
         if(_resourceFields.Count >= _maxActiveFields) return [];
