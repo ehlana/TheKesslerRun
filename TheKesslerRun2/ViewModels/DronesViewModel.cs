@@ -74,11 +74,12 @@ public partial class DronesViewModel : ObservableObject,
 
     public void Receive(FleetStatusMessage message)
     {
+        Guid? preferredSelection = SelectedDrone?.Id;
         bool fleetChanged = FleetChanged(message);
 
         SyncDrones(message.Drones);
         DronesLost = message.LostCount;
-        RefreshSelectedDroneReference();
+        RefreshSelectedDroneReference(preferredSelection);
         StoreFleetSnapshot(message);
 
         if (fleetChanged)
