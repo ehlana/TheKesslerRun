@@ -18,6 +18,7 @@ public partial class MainWindow : Window, IMessageReceiver<Scan.CompletedMessage
         InitializeComponent();
         DataContext = vm;
         messageBus.Subscribe(this);
+        Loaded += OnLoaded;
     }
 
     /// <summary>
@@ -85,5 +86,11 @@ public void AddDockedDocument(UserControl view, string title, bool canClose = tr
         _firstScanDone = true;
 
         AddDockedDocument(App.Current.GetService<DronesView>(), "Drones", false, false, true);
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnLoaded;
+        AddDockedDocument(App.Current.GetService<RecyclingCentreView>(), "Recycling Centre", false);
     }
 }

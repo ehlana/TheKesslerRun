@@ -14,5 +14,7 @@ public class Game
         ResourceManager.Instance.LoadFromFile(Path.Combine("Data", "resources.json"));
         HeartbeatService = new HeartbeatService(heartbeatProvider);
         _services.Add(new ScanService());
+        _services.Add(new DronesService());
+        _services.Add(new RecyclingCentreService());
     }
 }
