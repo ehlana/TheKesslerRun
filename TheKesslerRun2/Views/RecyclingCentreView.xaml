@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:dto="clr-namespace:TheKesslerRun2.DTOs;assembly=TheKesslerRun2.DTOs"
              xmlns:viewmodels="clr-namespace:TheKesslerRun2.ViewModels"
              mc:Ignorable="d"
              d:DataContext="{d:DesignInstance Type=viewmodels:RecyclingCentreViewModel, IsDesignTimeCreatable=True}">
@@ -11,6 +12,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0"
@@ -18,22 +20,70 @@
                     Margin="0,0,0,8">
             <TextBlock Text="Recycling centre inventory overview" FontSize="14" FontWeight="SemiBold" />
             <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding LastDeliveryMessage}" TextWrapping="Wrap" Margin="0,4,0,0" />
         </StackPanel>
 
-        <DataGrid Grid.Row="1"
-                  AutoGenerateColumns="False"
-                  ItemsSource="{Binding Resources}"
-                  IsReadOnly="True"
-                  CanUserAddRows="False"
-                  HeadersVisibility="Column"
-                  Margin="0,0,0,8">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Resource" Binding="{Binding DisplayName}" Width="*" />
-                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat={}{0:0}}" Width="120" />
-                <DataGridTextColumn Header="Unit Value" Binding="{Binding UnitValue, StringFormat={}{0:C}}" Width="140" />
-                <DataGridTextColumn Header="Total Value" Binding="{Binding TotalValue, StringFormat={}{0:C}}" Width="160" />
-            </DataGrid.Columns>
-        </DataGrid>
+        <ListBox Grid.Row="1"
+                 ItemsSource="{Binding Bins}"
+                 SelectedItem="{Binding SelectedBin, Mode=TwoWay}"
+                 BorderThickness="0"
+                 HorizontalContentAlignment="Stretch"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel IsItemsHost="True" Margin="-4" />
+                </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Margin" Value="4" />
+                    <Setter Property="Padding" Value="0" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="{x:Type dto:RecyclingBinDto}">
+                    <Border CornerRadius="8"
+                            Padding="12"
+                            MinWidth="180"
+                            Width="220"
+                            BorderThickness="1">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" />
+                                <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding ResourceName, TargetNullValue=Empty bin, FallbackValue=Empty bin}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                                       Margin="0,2,0,4" />
+                            <ProgressBar Height="14"
+                                         Maximum="1"
+                                         Value="{Binding FillPercentage}"
+                                         Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding Amount, StringFormat={}{0:0} units}" />
+                            <TextBlock Text="{Binding Capacity, StringFormat={}Capacity {0:0}}" FontSize="12" />
+                            <TextBlock Text="{Binding RemainingCapacity, StringFormat={}Space left {0:0}}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                            <TextBlock Text="{Binding TotalValue, StringFormat={}{0:0.00}cr}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
 
         <Border Grid.Row="2"
                 Padding="12"
@@ -45,12 +95,25 @@
                     <TextBlock Text="Total stored mass:" FontWeight="SemiBold" Margin="0,0,8,0" />
                     <TextBlock Text="{Binding TotalStoredAmount, StringFormat={}{0:0} units}" />
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                     <TextBlock Text="Total stored value:" FontWeight="SemiBold" Margin="0,0,8,0" />
-                    <TextBlock Text="{Binding TotalStoredValue, StringFormat={}{0:C}}" />
+                    <TextBlock Text="{Binding TotalStoredValue, StringFormat={}{0:0.00}cr}" />
                 </StackPanel>
-                <TextBlock Text="{Binding LastDeliveryMessage}" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Credits on hand:" FontWeight="SemiBold" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding Credits, StringFormat={}{0:0.00}cr}" />
+                </StackPanel>
             </StackPanel>
         </Border>
+
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,8,0,0">
+            <Button Content="Sell Selected Bin"
+                    Width="160"
+                    HorizontalAlignment="Right"
+                    Command="{Binding SellSelectedBinCommand}" />
+        </StackPanel>
     </Grid>
 </UserControl>

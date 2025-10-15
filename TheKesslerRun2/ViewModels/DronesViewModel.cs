@@ -1,31 +1,17 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using TheKesslerRun2.DTOs;
+using TheKesslerRun2.Extensions;
 using TheKesslerRun2.Services;
 using TheKesslerRun2.Services.Interfaces;
 using static TheKesslerRun2.Services.Messages.Drone;
-using static TheKesslerRun2.Services.Messages.Scan;
 using static TheKesslerRun2.Services.Messages.RecyclingCentre;
+using static TheKesslerRun2.Services.Messages.Scan;
 
 namespace TheKesslerRun2.ViewModels;
 
-public partial class DronesViewModel : ObservableObject,
-    IMessageReceiver<FleetStatusMessage>,
-    IMessageReceiver<CompletedMessage>,
-    IMessageReceiver<FieldsKnownMessage>,
-    IMessageReceiver<LaunchFailedMessage>,
-    IMessageReceiver<LaunchedMessage>,
-    IMessageReceiver<ArrivedAtDestinationMessage>,
-    IMessageReceiver<MiningCompletedMessage>,
-    IMessageReceiver<ArrivedAtCentreMessage>,
-    IMessageReceiver<OutOfChargeMessage>,
-    IMessageReceiver<LostMessage>,
-    IMessageReceiver<CargoReceivedMessage>,
-    IHeartbeatReceiver
+public partial class DronesViewModel : ObservableObject, IHeartbeatReceiver
 {
     private readonly IMessageBus _messageBus;
     private readonly List<DroneStatusDto> _lastFleetSnapshot = [];
@@ -60,17 +46,20 @@ public partial class DronesViewModel : ObservableObject,
 
         Game.Instance.HeartbeatService!.AddReceiver(this);
 
-        messageBus.Subscribe<FleetStatusMessage>(this);
-        messageBus.Subscribe<CompletedMessage>(this);
-        messageBus.Subscribe<FieldsKnownMessage>(this);
-        messageBus.Subscribe<LaunchFailedMessage>(this);
-        messageBus.Subscribe<LaunchedMessage>(this);
-        messageBus.Subscribe<ArrivedAtDestinationMessage>(this);
-        messageBus.Subscribe<MiningCompletedMessage>(this);
-        messageBus.Subscribe<ArrivedAtCentreMessage>(this);
-        messageBus.Subscribe<OutOfChargeMessage>(this);
-        messageBus.Subscribe<LostMessage>(this);
-        messageBus.Subscribe<CargoReceivedMessage>(this);
+        messageBus.SubscribeOnUI<FleetStatusMessage>(Receive);
+        messageBus.SubscribeOnUI<CompletedMessage>(Receive);
+        messageBus.SubscribeOnUI<FieldsKnownMessage>(Receive);
+        messageBus.SubscribeOnUI<FieldUpdatedMessage>(Receive);
+        messageBus.SubscribeOnUI<LaunchFailedMessage>(Receive);
+        messageBus.SubscribeOnUI<LaunchedMessage>(Receive);
+        messageBus.SubscribeOnUI<ArrivedAtDestinationMessage>(Receive);
+        messageBus.SubscribeOnUI<GatheringCompletedMessage>(Receive);
+        messageBus.SubscribeOnUI<ArrivedAtCentreMessage>(Receive);
+        messageBus.SubscribeOnUI<OutOfChargeMessage>(Receive);
+        messageBus.SubscribeOnUI<LostMessage>(Receive);
+        messageBus.SubscribeOnUI<CargoReceivedMessage>(Receive);
+        messageBus.SubscribeOnUI<RecallAcknowledgedMessage>(Receive);
+        messageBus.SubscribeOnUI<RecallFailedMessage>(Receive);
 
         _messageBus.Publish(new RequestKnownFieldsMessage());
     }
@@ -95,6 +84,7 @@ public partial class DronesViewModel : ObservableObject,
         }
 
         SendDroneCommand.NotifyCanExecuteChanged();
+        RecallDroneCommand.NotifyCanExecuteChanged();
     }
 
     public void Receive(CompletedMessage message)
@@ -124,14 +114,29 @@ public partial class DronesViewModel : ObservableObject,
         }
     }
 
+    public void Receive(FieldUpdatedMessage message)
+    {
+        if (message.Field.ResourceAmount <= 0)
+        {
+            RemoveField(message.Field.Id);
+        }
+        else
+        {
+            UpsertField(message.Field);
+        }
+
+        RefreshSelectedFieldReference();
+    }
+
     public void Receive(LaunchFailedMessage message)
     {
         SetStatusMessage(message.Reason);
+        RecallDroneCommand.NotifyCanExecuteChanged();
     }
 
     public void Receive(LaunchedMessage message)
     {
-        var field = _knownFields.FirstOrDefault(f => f.Id == message.DestinationId);
+        var field = KnownFields.FirstOrDefault(f => f.Id == message.DestinationId);
         var fieldLabel = field is null
             ? "target"
             : $"{field.ResourceType} field ({field.DistanceFromCentre:0} km)";
@@ -146,9 +151,9 @@ public partial class DronesViewModel : ObservableObject,
         RefreshSelectedDroneReference(message.DroneId);
     }
 
-    public void Receive(MiningCompletedMessage message)
+    public void Receive(GatheringCompletedMessage message)
     {
-        SetStatusMessage("Drone has completed mining and is returning.");
+        SetStatusMessage("Drone has completed gathering and is returning.");
         RefreshSelectedDroneReference(message.DroneId);
     }
 
@@ -172,8 +177,39 @@ public partial class DronesViewModel : ObservableObject,
 
     public void Receive(CargoReceivedMessage message)
     {
-        SetStatusMessage($"Drone delivered {message.AmountDelivered:0} units of {message.Resource.DisplayName} to the recycling centre.");
+        string status;
+        if (message.AmountStored > 0)
+        {
+            var overflowNote = message.Overflow > 0
+                ? $" with {message.Overflow:0} units unable to be stored"
+                : string.Empty;
+            status = $"Drone delivered {message.AmountStored:0} units of {message.Resource.DisplayName}{overflowNote}. Total stored: {message.Resource.Amount:0} units.";
+        }
+        else
+        {
+            status = $"Recycling centre could not accept {message.Resource.DisplayName}; storage is full.";
+        }
+
+        SetStatusMessage(status);
         RefreshSelectedDroneReference(message.DroneId);
+        RecallDroneCommand.NotifyCanExecuteChanged();
+    }
+
+    public void Receive(RecallAcknowledgedMessage message)
+    {
+        RefreshSelectedDroneReference(message.DroneId);
+        SetStatusMessage("Recall acknowledged. Drone is returning to the recycling centre.");
+        RecallDroneCommand.NotifyCanExecuteChanged();
+    }
+
+    public void Receive(RecallFailedMessage message)
+    {
+        if (SelectedDrone?.Id == message.DroneId)
+        {
+            SetStatusMessage(message.Reason);
+        }
+
+        RecallDroneCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanSendDrone))]
@@ -189,6 +225,20 @@ public partial class DronesViewModel : ObservableObject,
     }
 
     private bool CanSendDrone() => SelectedDrone?.IsIdle == true && SelectedField is not null;
+
+    [RelayCommand(CanExecute = nameof(CanRecallDrone))]
+    private void RecallDrone()
+    {
+        if (SelectedDrone is null || !SelectedDrone.IsRecallable)
+        {
+            return;
+        }
+
+        _messageBus.Publish(new RecallMessage(SelectedDrone.Id));
+        SetStatusMessage($"Requested recall of {SelectedDrone.DisplayName}.");
+    }
+
+    private bool CanRecallDrone() => SelectedDrone?.IsRecallable == true;
 
     public void Tick(double deltaSeconds)
     {
@@ -234,8 +284,31 @@ public partial class DronesViewModel : ObservableObject,
         }
     }
 
+    private void RemoveField(Guid id)
+    {
+        for (int i = 0; i < KnownFields.Count; i++)
+        {
+            if (KnownFields[i].Id == id)
+            {
+                bool wasSelected = SelectedField?.Id == id;
+                KnownFields.RemoveAt(i);
+                if (wasSelected)
+                {
+                    SelectedField = null;
+                }
+                return;
+            }
+        }
+    }
+
     private void UpsertField(ResourceFieldDto field)
     {
+        if (field.ResourceAmount <= 0)
+        {
+            RemoveField(field.Id);
+            return;
+        }
+
         for (int i = 0; i < KnownFields.Count; i++)
         {
             if (KnownFields[i].Id == field.Id)
@@ -369,10 +442,12 @@ public partial class DronesViewModel : ObservableObject,
     partial void OnSelectedDroneChanged(DroneStatusDto? value)
     {
         SendDroneCommand.NotifyCanExecuteChanged();
+        RecallDroneCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnSelectedFieldChanged(ResourceFieldDto? value)
     {
         SendDroneCommand.NotifyCanExecuteChanged();
+        RecallDroneCommand.NotifyCanExecuteChanged();
     }
 }

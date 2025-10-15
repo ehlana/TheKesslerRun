@@ -1,0 +1,36 @@
+{
+  "upgrades": [
+    {
+      "Id": "drone_speed_1",
+      "DisplayName": "Drone Speed I",
+      "Description": "Increases drone speed by 10%.",
+      "Cost": [
+        {
+          "Resource": "electronics_scrap",
+          "Amount": 5
+        },
+        {
+          "Resource": "rare_alloy",
+          "Amount": 2
+        }
+      ],
+      "Prerequisite": null
+    },
+    {
+      "Id": "drone_speed_2",
+      "DisplayName": "Drone Speed II",
+      "Description": "Increases drone speed by another 15%.",
+      "Cost": [
+        {
+          "Resource": "electronics_scrap",
+          "Amount": 10
+        },
+        {
+          "Resource": "rare_alloy",
+          "Amount": 5
+        }
+      ],
+      "Prerequisite": "drone_speed_1"
+    }
+  ]
+}

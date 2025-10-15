@@ -53,7 +53,7 @@
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
-                        <GridViewColumn Header="Cargo Type" DisplayMemberBinding="{Binding CargoType}" Width="120" />
+                        <GridViewColumn Header="Cargo Manifest" DisplayMemberBinding="{Binding CargoType}" Width="160" />
                     </GridView>
                 </ListView.View>
             </ListView>
@@ -66,12 +66,13 @@
                 <ListBox ItemsSource="{Binding KnownFields}"
                          SelectedItem="{Binding SelectedField, Mode=TwoWay}"
                          Margin="0,8,0,0">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel>
-                                <TextBlock Text="{Binding ResourceType}" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding DistanceFromCentre, StringFormat={}{0:0} km away}" />
-                                <TextBlock Text="{Binding ResourceAmount, StringFormat={}{0:0} units}" />
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ResourceType}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding OutputSummary}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding DistanceFromCentre, StringFormat={}{0:0} km away}" />
+                                    <TextBlock Text="{Binding ResourceAmount, StringFormat={}{0:0} units}" />
                                 <TextBlock Text="{Binding MiningDifficulty, StringFormat=Difficulty {0:0.0}}" />
                             </StackPanel>
                         </DataTemplate>
@@ -90,10 +91,19 @@
                     <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Margin="0,0,0,4" />
                     <TextBlock Text="{Binding DronesLost, StringFormat=Total drones lost: {0}}" />
                 </StackPanel>
-                <Button Grid.Column="1"
-                        Content="Launch Drone"
-                        Padding="20,6"
-                        Command="{Binding SendDroneCommand}" />
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0"
+                            VerticalAlignment="Center">
+                    <Button Content="Recall Drone"
+                            Padding="16,6"
+                            Margin="0,0,8,0"
+                            Command="{Binding RecallDroneCommand}" />
+                    <Button Content="Launch Drone"
+                            Padding="20,6"
+                            Command="{Binding SendDroneCommand}" />
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

@@ -2,5 +2,5 @@
 public interface IMessageBus
 {
     void Publish<T>(T message);
-    void Subscribe<T>(IMessageReceiver<T> receiver);
+    IDisposable Subscribe<T>(Action<T> receiver);
 }

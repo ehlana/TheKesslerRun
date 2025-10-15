@@ -1,0 +1,132 @@
+{
+  "fields": [
+    {
+      "Id": "hull_fragments",
+      "DisplayName": "Hull Fragments",
+      "Colour": "#8B4513",
+      "SpawnWeight": 1.0,
+      "Amount": {
+        "Min": 600,
+        "Max": 2000
+      },
+      "Difficulty": {
+        "Min": 1.0,
+        "Max": 2.0
+      },
+      "Outputs": [
+        {
+          "ResourceId": "structural_alloys",
+          "Ratio": 0.45
+        },
+        {
+          "ResourceId": "thermal_compounds",
+          "Ratio": 0.25
+        },
+        {
+          "ResourceId": "composite_fibres",
+          "Ratio": 0.2
+        },
+        {
+          "ResourceId": "historic_artifacts",
+          "Ratio": 0.1
+        }
+      ]
+    },
+    {
+      "Id": "station_wreckage",
+      "DisplayName": "Station Wreckage",
+      "Colour": "#708090",
+      "SpawnWeight": 0.9,
+      "Amount": {
+        "Min": 500,
+        "Max": 1800
+      },
+      "Difficulty": {
+        "Min": 1.4,
+        "Max": 2.6
+      },
+      "Outputs": [
+        {
+          "ResourceId": "superconductive_wire",
+          "Ratio": 0.3
+        },
+        {
+          "ResourceId": "data_cores",
+          "Ratio": 0.25
+        },
+        {
+          "ResourceId": "thermal_compounds",
+          "Ratio": 0.25
+        },
+        {
+          "ResourceId": "structural_alloys",
+          "Ratio": 0.2
+        }
+      ]
+    },
+    {
+      "Id": "booster_shells",
+      "DisplayName": "Booster Shells",
+      "Colour": "#FF8C00",
+      "SpawnWeight": 0.7,
+      "Amount": {
+        "Min": 400,
+        "Max": 1500
+      },
+      "Difficulty": {
+        "Min": 1.6,
+        "Max": 3.0
+      },
+      "Outputs": [
+        {
+          "ResourceId": "reactive_fuel",
+          "Ratio": 0.4
+        },
+        {
+          "ResourceId": "thermal_compounds",
+          "Ratio": 0.25
+        },
+        {
+          "ResourceId": "defense_components",
+          "Ratio": 0.2
+        },
+        {
+          "ResourceId": "structural_alloys",
+          "Ratio": 0.15
+        }
+      ]
+    },
+    {
+      "Id": "tether_webs",
+      "DisplayName": "Tether Webs",
+      "Colour": "#800080",
+      "SpawnWeight": 0.8,
+      "Amount": {
+        "Min": 700,
+        "Max": 2100
+      },
+      "Difficulty": {
+        "Min": 1.8,
+        "Max": 3.5
+      },
+      "Outputs": [
+        {
+          "ResourceId": "composite_fibres",
+          "Ratio": 0.35
+        },
+        {
+          "ResourceId": "photovoltaic_cells",
+          "Ratio": 0.25
+        },
+        {
+          "ResourceId": "optical_components",
+          "Ratio": 0.2
+        },
+        {
+          "ResourceId": "superconductive_wire",
+          "Ratio": 0.2
+        }
+      ]
+    }
+  ]
+}

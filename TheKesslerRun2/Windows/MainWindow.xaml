@@ -1,12 +1,24 @@
-﻿<Window x:Class="TheKesslerRun2.MainWindow"
+<Window x:Class="TheKesslerRun2.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TheKesslerRun2.Views"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="The Kessler Run"
+        Height="600"
+        Width="1000">
+    <DockPanel>
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <Button Content="Save Game"
+                        Command="{Binding SaveGameCommand}" />
+                <Button Content="Quit Session"
+                        Margin="8,0,0,0"
+                        Command="{Binding ExitSessionCommand}" />
+            </ToolBar>
+        </ToolBarTray>
+
         <DockingManager x:Name="DockManager">
             <DockingManager.Theme>
                 <Vs2013LightTheme />
@@ -15,12 +27,13 @@
             <LayoutRoot>
                 <LayoutPanel Orientation="Horizontal">
                     <LayoutDocumentPane>
-                        <LayoutDocument Title="Scan View" CanClose="False">
+                        <LayoutDocument Title="Scan View" CanClose="False" ContentId="TheKesslerRun2.Views.ScanView">
                             <local:ScanView />
                         </LayoutDocument>
                     </LayoutDocumentPane>
                 </LayoutPanel>
             </LayoutRoot>
         </DockingManager>
-    </Grid>
+    </DockPanel>
 </Window>
+

@@ -1,96 +1,310 @@
-﻿using AvalonDock.Layout;
+using AvalonDock.Layout;
+using AvalonDock.Layout.Serialization;
+using System;
+using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Runtime.Versioning;
 using System.Windows;
 using System.Windows.Controls;
 using TheKesslerRun2.Services.Interfaces;
 using TheKesslerRun2.Services.Messages;
+using TheKesslerRun2.Services.Model;
+using TheKesslerRun2.Services.Services;
 using TheKesslerRun2.ViewModels;
 using TheKesslerRun2.Views;
 
 namespace TheKesslerRun2;
 
 [SupportedOSPlatform("windows")]
-public partial class MainWindow : Window, IMessageReceiver<Scan.CompletedMessage>
+public partial class MainWindow
 {
-    private bool _firstScanDone = false;
+    private readonly MainViewModel _viewModel;
+    private bool _firstScanDone;
+    private bool _dronesTabAdded;
+    private bool _handlingExitRequest;
+
     public MainWindow(MainViewModel vm, IMessageBus messageBus)
     {
         InitializeComponent();
+        _viewModel = vm;
         DataContext = vm;
-        messageBus.Subscribe(this);
+
+        vm.SaveRequested += OnSaveRequested;
+        vm.GameSaved += OnGameSaved;
+        vm.ExitRequested += OnExitRequested;
+        Closed += OnClosed;
+        Closing += OnClosing;
+
+        messageBus.Subscribe<Scan.CompletedMessage>(Receive);
         Loaded += OnLoaded;
     }
 
-    /// <summary>
-    /// Adds a UserControl as a LayoutDocument to the main DockingManager.
-    /// </summary>
-    /// <param name="view">The UserControl to add</param>
-    /// <param name="title">Title of the tab</param>
-    /// <param name="canClose">Whether the tab can be closed</param>
-    /// <param name="selectThisDocument">Whether to select this document immediately</param>
-public void AddDockedDocument(UserControl view, string title, bool canClose = true, bool selectThisDocument = false, bool newPane = false)
-{
-    if (view == null) return;
-
-    // Wrap the view in a LayoutDocument
-    var layoutDoc = new LayoutDocument
+    private void OnClosed(object? sender, EventArgs e)
     {
-        Title = title,
-        Content = view,
-        CanClose = canClose
-    };
-
-    if (newPane)
-    {
-        // Create a new LayoutDocumentPane and insert it to the right of the first pane
-        var existingPane = DockManager.Layout.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
-
-        var newPaneInstance = new LayoutDocumentPane();
-        newPaneInstance.Children.Add(layoutDoc);
-
-        if (existingPane != null && existingPane.Parent is LayoutPanel parentPanel)
-        {
-            int index = parentPanel.IndexOfChild(existingPane);
-            parentPanel.Children.Insert(index + 1, newPaneInstance);
-        }
-        else
-        {
-            DockManager.Layout.RootPanel.Children.Add(newPaneInstance);
-        }
+        _viewModel.SaveRequested -= OnSaveRequested;
+        _viewModel.GameSaved -= OnGameSaved;
+        _viewModel.ExitRequested -= OnExitRequested;
     }
-    else
+
+    private void OnSaveRequested(object? sender, EventArgs e)
     {
-        // Add to first available pane as a tab
-        var docPane = DockManager.Layout.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
-        if (docPane != null)
+        var app = (App)Application.Current;
+        app.PauseGameLoops();
+
+        try
         {
-            docPane.Children.Add(layoutDoc);
+            var saveService = App.Current.GetService<ISaveGameService>();
+            var manualSaves = saveService.GetSaveGames().Where(s => !s.IsAutoSave).ToList();
+            var dialog = new SaveGameWindow(manualSaves, GenerateDefaultSaveName())
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var layout = CaptureLayout();
+                var (width, height) = GetWindowMetrics();
+
+                SaveGameSummary summary;
+                if (!string.IsNullOrWhiteSpace(dialog.ResultFilePath))
+                {
+                    summary = saveService.SaveGame(dialog.ResultName, layout, width, height, false, dialog.ResultFilePath);
+                }
+                else
+                {
+                    summary = saveService.SaveGame(dialog.ResultName, layout, width, height);
+                }
+
+                _viewModel.NotifyGameSaved(summary);
+                App.Current.GetService<StartupViewModel>().RefreshSavesCommand.Execute(null);
+            }
         }
-        else
+        finally
         {
-            // If none exists, create a new pane
-            var newPaneInstance = new LayoutDocumentPane(layoutDoc);
-            DockManager.Layout.RootPanel.Children.Add(newPaneInstance);
+            app.ResumeGameLoops();
         }
     }
 
-    // Select the new document immediately
-    if (selectThisDocument) layoutDoc.IsSelected = true;
-}
+    private static string GenerateDefaultSaveName() => $"Save {DateTime.Now:yyyy-MM-dd HHmm}";
+
+    private void OnGameSaved(object? sender, SaveGameSummary summary)
+    {
+        MessageBox.Show(this, $"Game saved as {summary.Name}.", "Save Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void OnExitRequested(object? sender, EventArgs e) => RequestSessionExit();
+
+    private void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (_handlingExitRequest || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        RequestSessionExit();
+    }
+
+    private void RequestSessionExit()
+    {
+        if (_handlingExitRequest)
+        {
+            return;
+        }
+
+        _handlingExitRequest = true;
+        try
+        {
+            var result = MessageBox.Show(
+                this,
+                "Quit the current session and return to the startup menu?",
+                "Confirm Session Quit",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                return;
+            }
+
+            App.Current.EndSession();
+        }
+        finally
+        {
+            _handlingExitRequest = false;
+        }
+    }
+
+    public void AddDockedDocument(UserControl view, string title, bool canClose = true, bool selectThisDocument = false, bool newPane = false)
+    {
+        if (view == null)
+        {
+            return;
+        }
+
+        var existing = DockManager.Layout.Descendents()
+            .OfType<LayoutDocument>()
+            .FirstOrDefault(doc => ReferenceEquals(doc.Content, view));
+        if (existing is not null)
+        {
+            if (selectThisDocument)
+            {
+                existing.IsSelected = true;
+            }
+            return;
+        }
+
+        var layoutDoc = new LayoutDocument
+        {
+            Title = title,
+            Content = view,
+            CanClose = canClose,
+            ContentId = view.GetType().FullName
+        };
+
+        if (newPane)
+        {
+            var existingPane = DockManager.Layout.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
+
+            var newPaneInstance = new LayoutDocumentPane();
+            newPaneInstance.Children.Add(layoutDoc);
+
+            if (existingPane != null && existingPane.Parent is LayoutPanel parentPanel)
+            {
+                int index = parentPanel.IndexOfChild(existingPane);
+                parentPanel.Children.Insert(index + 1, newPaneInstance);
+            }
+            else
+            {
+                DockManager.Layout.RootPanel.Children.Add(newPaneInstance);
+            }
+        }
+        else
+        {
+            var docPane = DockManager.Layout.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
+            if (docPane != null)
+            {
+                docPane.Children.Add(layoutDoc);
+            }
+            else
+            {
+                var newPaneInstance = new LayoutDocumentPane(layoutDoc);
+                DockManager.Layout.RootPanel.Children.Add(newPaneInstance);
+            }
+        }
+
+        if (selectThisDocument)
+        {
+            layoutDoc.IsSelected = true;
+        }
+
+        if (view is DronesView)
+        {
+            _dronesTabAdded = true;
+            _firstScanDone = true;
+        }
+    }
 
     public void Receive(Scan.CompletedMessage message)
     {
-        // If this is the first ever scan, then bring up the drones view.
-        if (_firstScanDone) return;
+        if (_firstScanDone)
+        {
+            return;
+        }
 
-        _firstScanDone = true;
-
-        AddDockedDocument(App.Current.GetService<DronesView>(), "Drones", false, false, true);
+        EnsureDronesTab(newPane: true);
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
-        AddDockedDocument(App.Current.GetService<RecyclingCentreView>(), "Recycling Centre", false);
+        EnsureRecyclingTab();
+    }
+
+    public void EnsureDronesTab(bool newPane = false)
+    {
+        if (_dronesTabAdded)
+        {
+            return;
+        }
+
+        AddDockedDocument(App.Current.GetService<DronesView>(), "Drones", false, false, newPane);
+    }
+
+    public void RestoreLayout(string? layoutXml)
+    {
+        if (string.IsNullOrWhiteSpace(layoutXml))
+        {
+            _dronesTabAdded = DockManager.Layout.Descendents().OfType<LayoutDocument>().Any(doc => doc.Content is DronesView);
+            _firstScanDone = _dronesTabAdded;
+            EnsureRecyclingTab();
+            return;
+        }
+
+        var serializer = new XmlLayoutSerializer(DockManager);
+        serializer.LayoutSerializationCallback += OnLayoutSerialization;
+        try
+        {
+            using var reader = new StringReader(layoutXml);
+            serializer.Deserialize(reader);
+        }
+        catch
+        {
+            EnsureDronesTab(newPane: true);
+        }
+        finally
+        {
+            serializer.LayoutSerializationCallback -= OnLayoutSerialization;
+        }
+
+        _dronesTabAdded = DockManager.Layout.Descendents().OfType<LayoutDocument>().Any(doc => doc.Content is DronesView);
+        _firstScanDone = _dronesTabAdded;
+
+        EnsureRecyclingTab();
+    }
+
+    public string CaptureLayout()
+    {
+        var serializer = new XmlLayoutSerializer(DockManager);
+        using var writer = new StringWriter();
+        serializer.Serialize(writer);
+        return writer.ToString();
+    }
+
+    public (double Width, double Height) GetWindowMetrics()
+    {
+        double width = ActualWidth > 0 ? ActualWidth : Width;
+        double height = ActualHeight > 0 ? ActualHeight : Height;
+        return (width, height);
+    }
+
+    private void EnsureRecyclingTab()
+    {
+        if (!DockManager.Layout.Descendents().OfType<LayoutDocument>().Any(doc => doc.Content is RecyclingCentreView))
+        {
+            AddDockedDocument(App.Current.GetService<RecyclingCentreView>(), "Recycling Centre", false);
+        }
+    }
+
+    private void OnLayoutSerialization(object? sender, LayoutSerializationCallbackEventArgs e)
+    {
+        switch (e.Model.ContentId)
+        {
+            case "TheKesslerRun2.Views.ScanView":
+                e.Content = App.Current.GetService<ScanView>();
+                break;
+            case "TheKesslerRun2.Views.DronesView":
+                e.Content = App.Current.GetService<DronesView>();
+                _dronesTabAdded = true;
+                _firstScanDone = true;
+                break;
+            case "TheKesslerRun2.Views.RecyclingCentreView":
+                e.Content = App.Current.GetService<RecyclingCentreView>();
+                break;
+            default:
+                e.Cancel = true;
+                break;
+        }
     }
 }

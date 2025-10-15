@@ -1,0 +1,21 @@
+{
+  "recycling": {
+    "binCount": 9,
+    "binCapacity": 500
+  },
+  "drone": {
+    "maxCharge": 1000,
+    "speed": 5.0,
+    "gatherSpeed": 1.0,
+    "maxDamage": 100,
+    "baseChargePerUnitDistance": 1.0,
+    "loadedChargeMultiplier": 1.5,
+    "maxOutOfChargeTime": 300,
+    "cargoCapacity": 125,
+    "rechargeRate": 10.0
+  },
+  "autosave": {
+    "intervalMinutes": 15,
+    "slotCount": 3
+  }
+}

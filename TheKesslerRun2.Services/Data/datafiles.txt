@@ -1,0 +1,7 @@
+﻿# a list of data files to include into data.orbpak
+resources.json
+fabrication.json
+fields.json
+recycling.json
+settings.json
+upgrades.json

@@ -60,8 +60,9 @@
                       IsReadOnly="True">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Resource Type" Binding="{Binding ResourceType}" />
-                    <DataGridTextColumn Header="Resource Amount" Binding="{Binding ResourceAmount}" />
-                    <DataGridTextColumn Header="Distance From Centre" Binding="{Binding DistanceFromCentre}"/>
+                    <DataGridTextColumn Header="Outputs" Binding="{Binding OutputSummary}" Width="2*" />
+                    <DataGridTextColumn Header="Resource Amount" Binding="{Binding ResourceAmount, StringFormat={}{0:0}}" />
+                    <DataGridTextColumn Header="Distance From Centre" Binding="{Binding DistanceFromCentre, StringFormat={}{0:0}}"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Grid>

@@ -1,0 +1,21 @@
+{
+  "fabrication": [
+    {
+      "Id": "drone_basic",
+      "DisplayName": "Basic Drone",
+      "Category": "Drones",
+      "Inputs": [
+        {
+          "Resource": "titanium_alloy",
+          "Amount": 10
+        },
+        {
+          "Resource": "circuit_board",
+          "Amount": 4
+        }
+      ],
+      "BuildTime": 15,
+      "UnlockLevel": 1
+    }
+  ]
+}

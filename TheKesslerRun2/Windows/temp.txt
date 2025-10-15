@@ -1,0 +1,262 @@
+using AvalonDock.Layout;
+using AvalonDock.Layout.Serialization;
+using System;
+using System.IO;
+using System.Linq;
+using System.Runtime.Versioning;
+using System.Windows;
+using System.Windows.Controls;
+using TheKesslerRun2.Services.Interfaces;
+using TheKesslerRun2.Services.Messages;
+using TheKesslerRun2.Services.Model;
+using TheKesslerRun2.Services.Services;
+using TheKesslerRun2.ViewModels;
+using TheKesslerRun2.Views;
+
+namespace TheKesslerRun2;
+
+[SupportedOSPlatform("windows")]
+public partial class MainWindow
+{
+    private readonly MainViewModel _viewModel;
+    private bool _firstScanDone;
+    private bool _dronesTabAdded;
+
+    public MainWindow(MainViewModel vm, IMessageBus messageBus)
+    {
+        InitializeComponent();
+        _viewModel = vm;
+        DataContext = vm;
+
+        vm.SaveRequested += OnSaveRequested;
+        vm.GameSaved += OnGameSaved;
+        Closed += OnClosed;
+
+        messageBus.Subscribe<Scan.CompletedMessage>(Receive);
+        Loaded += OnLoaded;
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        _viewModel.SaveRequested -= OnSaveRequested;
+        _viewModel.GameSaved -= OnGameSaved;
+    }
+
+    private void OnSaveRequested(object? sender, EventArgs e)
+    {
+        var app = (App)Application.Current;
+        app.PauseGameLoops();
+
+        try
+        {
+            var saveService = App.Current.GetService<ISaveGameService>();
+            var manualSaves = saveService.GetSaveGames().Where(s => !s.IsAutoSave).ToList();
+            var dialog = new SaveGameWindow(manualSaves, GenerateDefaultSaveName())
+            {
+                Owner = this
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var layout = CaptureLayout();
+                var (width, height) = GetWindowMetrics();
+
+                SaveGameSummary summary;
+                if (!string.IsNullOrWhiteSpace(dialog.ResultFilePath))
+                {
+                    summary = saveService.SaveGame(dialog.ResultName, layout, width, height, false, dialog.ResultFilePath);
+                }
+                else
+                {
+                    summary = saveService.SaveGame(dialog.ResultName, layout, width, height);
+                }
+
+                _viewModel.NotifyGameSaved(summary);
+                App.Current.GetService<StartupViewModel>().RefreshSavesCommand.Execute(null);
+            }
+        }
+        finally
+        {
+            app.ResumeGameLoops();
+        }
+    }
+
+    private static string GenerateDefaultSaveName() => $"Save {DateTime.Now:yyyy-MM-dd HHmm}";
+
+    private void OnGameSaved(object? sender, SaveGameSummary summary)
+    {
+        MessageBox.Show(this, $"Game saved as {summary.Name}.", "Save Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    public void AddDockedDocument(UserControl view, string title, bool canClose = true, bool selectThisDocument = false, bool newPane = false)
+    {
+        if (view == null)
+        {
+            return;
+        }
+
+        var existing = DockManager.Layout.Descendents()
+            .OfType<LayoutDocument>()
+            .FirstOrDefault(doc => ReferenceEquals(doc.Content, view));
+        if (existing is not null)
+        {
+            if (selectThisDocument)
+            {
+                existing.IsSelected = true;
+            }
+            return;
+        }
+
+        var layoutDoc = new LayoutDocument
+        {
+            Title = title,
+            Content = view,
+            CanClose = canClose,
+            ContentId = view.GetType().FullName
+        };
+
+        if (newPane)
+        {
+            var existingPane = DockManager.Layout.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
+
+            var newPaneInstance = new LayoutDocumentPane();
+            newPaneInstance.Children.Add(layoutDoc);
+
+            if (existingPane != null && existingPane.Parent is LayoutPanel parentPanel)
+            {
+                int index = parentPanel.IndexOfChild(existingPane);
+                parentPanel.Children.Insert(index + 1, newPaneInstance);
+            }
+            else
+            {
+                DockManager.Layout.RootPanel.Children.Add(newPaneInstance);
+            }
+        }
+        else
+        {
+            var docPane = DockManager.Layout.Descendents().OfType<LayoutDocumentPane>().FirstOrDefault();
+            if (docPane != null)
+            {
+                docPane.Children.Add(layoutDoc);
+            }
+            else
+            {
+                var newPaneInstance = new LayoutDocumentPane(layoutDoc);
+                DockManager.Layout.RootPanel.Children.Add(newPaneInstance);
+            }
+        }
+
+        if (selectThisDocument)
+        {
+            layoutDoc.IsSelected = true;
+        }
+
+        if (view is DronesView)
+        {
+            _dronesTabAdded = true;
+            _firstScanDone = true;
+        }
+    }
+
+    public void Receive(Scan.CompletedMessage message)
+    {
+        if (_firstScanDone)
+        {
+            return;
+        }
+
+        EnsureDronesTab(newPane: true);
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnLoaded;
+        EnsureRecyclingTab();
+    }
+
+    public void EnsureDronesTab(bool newPane = false)
+    {
+        if (_dronesTabAdded)
+        {
+            return;
+        }
+
+        AddDockedDocument(App.Current.GetService<DronesView>(), "Drones", false, false, newPane);
+    }
+
+    public void RestoreLayout(string? layoutXml)
+    {
+        if (string.IsNullOrWhiteSpace(layoutXml))
+        {
+            _dronesTabAdded = DockManager.Layout.Descendents().OfType<LayoutDocument>().Any(doc => doc.Content is DronesView);
+            _firstScanDone = _dronesTabAdded;
+            EnsureRecyclingTab();
+            return;
+        }
+
+        var serializer = new XmlLayoutSerializer(DockManager);
+        serializer.LayoutSerializationCallback += OnLayoutSerialization;
+        try
+        {
+            using var reader = new StringReader(layoutXml);
+            serializer.Deserialize(reader);
+        }
+        catch
+        {
+            EnsureDronesTab(newPane: true);
+        }
+        finally
+        {
+            serializer.LayoutSerializationCallback -= OnLayoutSerialization;
+        }
+
+        _dronesTabAdded = DockManager.Layout.Descendents().OfType<LayoutDocument>().Any(doc => doc.Content is DronesView);
+        _firstScanDone = _dronesTabAdded;
+
+        EnsureRecyclingTab();
+    }
+
+    public string CaptureLayout()
+    {
+        var serializer = new XmlLayoutSerializer(DockManager);
+        using var writer = new StringWriter();
+        serializer.Serialize(writer);
+        return writer.ToString();
+    }
+
+    public (double Width, double Height) GetWindowMetrics()
+    {
+        double width = ActualWidth > 0 ? ActualWidth : Width;
+        double height = ActualHeight > 0 ? ActualHeight : Height;
+        return (width, height);
+    }
+
+    private void EnsureRecyclingTab()
+    {
+        if (!DockManager.Layout.Descendents().OfType<LayoutDocument>().Any(doc => doc.Content is RecyclingCentreView))
+        {
+            AddDockedDocument(App.Current.GetService<RecyclingCentreView>(), "Recycling Centre", false);
+        }
+    }
+
+    private void OnLayoutSerialization(object? sender, LayoutSerializationCallbackEventArgs e)
+    {
+        switch (e.Model.ContentId)
+        {
+            case "TheKesslerRun2.Views.ScanView":
+                e.Content = App.Current.GetService<ScanView>();
+                break;
+            case "TheKesslerRun2.Views.DronesView":
+                e.Content = App.Current.GetService<DronesView>();
+                _dronesTabAdded = true;
+                _firstScanDone = true;
+                break;
+            case "TheKesslerRun2.Views.RecyclingCentreView":
+                e.Content = App.Current.GetService<RecyclingCentreView>();
+                break;
+            default:
+                e.Cancel = true;
+                break;
+        }
+    }
+}

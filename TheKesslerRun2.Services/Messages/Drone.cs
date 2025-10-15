@@ -9,10 +9,13 @@ public static class Drone
     public record LaunchFailedMessage(Guid DroneId, Guid DestinationId, string Reason);
     public record LaunchedMessage(Guid DroneId, Guid DestinationId);
     public record ArrivedAtDestinationMessage(Guid DroneId, Guid DestinationId);
-    public record MiningCompletedMessage(Guid DroneId, Guid DestinationId);
+    public record GatheringCompletedMessage(Guid DroneId, Guid DestinationId);
     public record ArrivedAtCentreMessage(Guid DroneId);
     public record LostMessage(Guid DroneId);
     public record OutOfChargeMessage(Guid DroneId);
     public record RechargedMessage(Guid DroneId);
+    public record RecallMessage(Guid DroneId);
+    public record RecallAcknowledgedMessage(Guid DroneId, Guid? DestinationId);
+    public record RecallFailedMessage(Guid DroneId, string Reason);
     public record FleetStatusMessage(IReadOnlyList<DroneStatusDto> Drones, int LostCount);
 }

@@ -15,4 +15,5 @@ public record DroneStatusDto(
     double CargoPercent,
     string CargoType,
     double TotalDistanceTraveled,
-    bool IsIdle);
+    bool IsIdle,
+    bool IsRecallable);

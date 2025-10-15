@@ -1,0 +1,88 @@
+﻿We’ll create a three-tier resource economy that’s grounded, modular, and expandable.
+
+🌍 Step 1: Conceptual Flow
+
+Each salvage → refines into → base materials → which can either:
+
+be sold (common or hazardous waste),
+
+fabricated into drone parts / modules,
+
+or spent on upgrade tree materials.
+
+Here’s the overall structure:
+Debris Field
+   ↓
+Raw Salvage (11 we already defined)
+   ↓
+Recycling Facility
+   ↓
+Refined Resources (Tier 2)
+   ↓
+→ Sell for credits
+→ Use in fabrication (Tier 3 components)
+→ Use in upgrades / research
+
+Step 2: Tier 2 – Refined Materials
+
+Each “raw salvage” breaks down into one or more of these.
+These are the base materials of your in-game economy — simple, logical, and reusable.
+
+Refined Material ID	Display Name	Description	Common Uses
+metal_ingots	Processed Alloys	Reclaimed aluminum/titanium blends.	Drone chassis, hull plating
+carbon_fibres	Carbon Fibres	Graphene composites.	Lightweight frames, tether repair
+ceramic_mesh	Ceramic Mesh	Heat-resistant ceramic layers.	Thruster housings, armor
+circuit_boards	Circuit Boards	Basic electronic components.	Drone control units
+quantum_chips	Quantum Chips	Advanced processors from AI nodes.	Research upgrades, command AI
+solar_cells	Solar Cells	Reusable photovoltaic plates.	Power modules, orbital relays
+coolant_fluid	Coolant Fluid	Thermal transfer gels and fluids.	Reactor, repair drones
+radioactives	Radioactive Elements	Enriched isotopes.	Fusion cores, sell (hazardous waste)
+volatile_compounds	Volatile Compounds	Propellant residues and oxidizers.	Fuel boosters, high-risk sale
+optics	Optical Lenses	Precision glass and mirrors.	Sensor modules, drone vision systems
+encrypted_data	Encrypted Data	Recovered AI or mission logs.	Upgrade research, lore currency
+scrap_artifacts	Scrap Artifacts	Culturally significant debris.	Sell to collectors / reputation gain
+
+🔄 Step 3: Conversion Mapping
+
+Here’s how your existing salvage types could refine:
+
+Salvage Type	Recycles Into	Notes
+structural_alloys	metal_ingots, ceramic_mesh	Standard station metals
+superconductive_wire	circuit_boards, quantum_chips	Advanced electronics
+photovoltaic_cells	solar_cells, optics	Energy collection materials
+thermal_compounds	ceramic_mesh, coolant_fluid	Heat-resistant and fluid materials
+composite_fibres	carbon_fibres, metal_ingots	Versatile and light structural
+reactive_fuel	volatile_compounds, coolant_fluid	Propellants, dangerous
+rare_isotopes	radioactives, quantum_chips	Core for upgrades, high sale value
+optical_components	optics, circuit_boards	Precision lenses and scanners
+data_cores	encrypted_data, quantum_chips	For upgrades, lore or research
+defense_components	metal_ingots, circuit_boards, radioactives	Used in weapon or armor modules
+historic_artifacts	scrap_artifacts	Sale/reputation only
+
+🧩 Step 4: Tier 3 – Fabrication / Upgrade Uses
+
+These are the “consumers” of the refined materials — they give the economy purpose.
+
+Category	Examples	Resource Demands
+Drone Frames	Scout Drone, Heavy Salvager, Collector Mk II	metal_ingots, carbon_fibres, circuit_boards
+Modules	Thermal Shield, Auto-Repair Node, Fuel Scoop	ceramic_mesh, coolant_fluid, optics
+Energy Systems	Solar Array, Reactor Core, Capacitor Bank	solar_cells, radioactives, superconductive_wire
+Weapons / Defense	Micro Railgun, EMP Net	defense_components, metal_ingots, circuit_boards
+Upgrades / Research	AI Core Expansion, Drone Coordination, Quantum Salvage Efficiency	encrypted_data, quantum_chips, radioactives
+Sellable Waste	Volatile Compounds, Scrap Artifacts, Radioactives	Sell-only or hazardous contracts
+
+💰 Step 5: Market Behaviour
+
+You can then classify all resources for economy simulation:
+
+Common (bulk, low-value)
+metal_ingots, carbon_fibres, ceramic_mesh
+
+Specialized (medium value)
+optics, solar_cells, coolant_fluid, circuit_boards
+
+Advanced (high value / rare)
+quantum_chips, radioactives, encrypted_data
+
+Sell-only (no fabrication)
+volatile_compounds, scrap_artifacts

@@ -1,14 +1,17 @@
-﻿using TheKesslerRun2.Services.Interfaces;
 using TheKesslerRun2.Services.Messages;
 
 namespace TheKesslerRun2.Services.Services;
-internal class ScanService : BaseService,
-    IMessageReceiver<Scan.BeginScanMessage>,
-    IMessageReceiver<Scan.RequestKnownFieldsMessage>
+internal class ScanService : BaseService
 {
     private double _secTilCharge = 0.0;
     private double _chargeInterval = 5.0;
     private double _scanRange = 1000.0;
+
+    protected override void SubscribeToMessages()
+    {
+        MessageBus.Instance.Subscribe<Scan.BeginScanMessage>(Receive);
+        MessageBus.Instance.Subscribe<Scan.RequestKnownFieldsMessage>(Receive);
+    }
 
     protected override void OnTick()
     {
@@ -18,7 +21,7 @@ internal class ScanService : BaseService,
             if (_secTilCharge <= 0)
             {
                 // Scan charge is complete
-                MessageBus.Publish(new Scan.RechargeCompletedMessage());
+                MessageBus.Instance.Publish(new Scan.RechargeCompletedMessage());
                 _secTilCharge = 0;
             }
         }
@@ -29,10 +32,10 @@ internal class ScanService : BaseService,
         _secTilCharge = _chargeInterval;
 
         var fieldsInRange = ResourceFieldService.Instance.FindNewFieldsInRange(_scanRange)
-            .Select(f => new DTOs.ResourceFieldDto(f.Id, f.ResourceAmount, f.ResourceType, f.MiningDifficulty, f.DistanceFromCentre))
+            .Select(ResourceFieldMapper.ToDto)
             .ToList();
 
-        MessageBus.Publish(new Scan.CompletedMessage(fieldsInRange));
+        MessageBus.Instance.Publish(new Scan.CompletedMessage(fieldsInRange));
         BroadcastKnownFields();
     }
 
@@ -44,9 +47,10 @@ internal class ScanService : BaseService,
     private void BroadcastKnownFields()
     {
         var allFields = ResourceFieldService.Instance.GetAllFields()
-            .Select(f => new DTOs.ResourceFieldDto(f.Id, f.ResourceAmount, f.ResourceType, f.MiningDifficulty, f.DistanceFromCentre))
+            .Select(ResourceFieldMapper.ToDto)
             .ToList();
 
-        MessageBus.Publish(new Scan.FieldsKnownMessage(allFields));
+        MessageBus.Instance.Publish(new Scan.FieldsKnownMessage(allFields));
     }
+
 }

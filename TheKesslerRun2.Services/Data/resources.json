@@ -1,16 +1,92 @@
-[
-  {
-    "Id": "ore",
-    "DisplayName": "Ore",
-    "BaseMiningDifficulty": 1.0,
-    "BaseValue": 10,
-    "Color": "#A0A0A0"
-  },
-  {
-    "Id": "crystal",
-    "DisplayName": "Crystal",
-    "BaseMiningDifficulty": 2.5,
-    "BaseValue": 50,
-    "Color": "#00FFFF"
-  }
-]
+{
+  "resources": [
+    {
+      "Id": "structural_alloys",
+      "DisplayName": "Structural Alloys",
+      "BaseMiningDifficulty": 1.2,
+      "BaseValue": 28,
+      "Colour": "#A0522D",
+      "Description": "Common aluminium-titanium alloys from satellite frames and station hulls. Backbone of most orbital infrastructure."
+    },
+    {
+      "Id": "superconductive_wire",
+      "DisplayName": "Superconductive Wire",
+      "BaseMiningDifficulty": 2.3,
+      "BaseValue": 56,
+      "Colour": "#00BFFF",
+      "Description": "Cryogenic wiring and power relays. Essential for high-efficiency power transfer and data conduits."
+    },
+    {
+      "Id": "photovoltaic_cells",
+      "DisplayName": "Photovoltaic Cells",
+      "BaseMiningDifficulty": 1.9,
+      "BaseValue": 48,
+      "Colour": "#FFD700",
+      "Description": "Recovered from solar arrays. Fragile but valuable for reprocessing into clean energy systems."
+    },
+    {
+      "Id": "thermal_compounds",
+      "DisplayName": "Thermal Compounds",
+      "BaseMiningDifficulty": 1.7,
+      "BaseValue": 40,
+      "Colour": "#FF8C00",
+      "Description": "Heat-resistant materials and radiative coatings salvaged from radiator fins and engine plates."
+    },
+    {
+      "Id": "composite_fibres",
+      "DisplayName": "Composite Fibres",
+      "BaseMiningDifficulty": 2.0,
+      "BaseValue": 52,
+      "Colour": "#800080",
+      "Description": "Carbon-nano and graphene filaments once used in tethers and high-tensile structures."
+    },
+    {
+      "Id": "reactive_fuel",
+      "DisplayName": "Reactive Fuel Residue",
+      "BaseMiningDifficulty": 2.5,
+      "BaseValue": 62,
+      "Colour": "#7FFFD4",
+      "Description": "Residual propellant and oxidizer compounds. Dangerous to harvest but highly sought after."
+    },
+    {
+      "Id": "rare_isotopes",
+      "DisplayName": "Rare Isotopes",
+      "BaseMiningDifficulty": 2.9,
+      "BaseValue": 78,
+      "Colour": "#9932CC",
+      "Description": "Fragments of nuclear batteries and reactor cores. Requires heavy shielding during retrieval."
+    },
+    {
+      "Id": "optical_components",
+      "DisplayName": "Optical Components",
+      "BaseMiningDifficulty": 2.1,
+      "BaseValue": 54,
+      "Colour": "#4B9CD3",
+      "Description": "Lenses, mirrors, and sensor crystals. Critical for advanced scanning and targeting systems."
+    },
+    {
+      "Id": "data_cores",
+      "DisplayName": "Data Cores",
+      "BaseMiningDifficulty": 2.4,
+      "BaseValue": 66,
+      "Colour": "#2F4F4F",
+      "Description": "Memory vaults and encrypted AI nodes. Salvage yields valuable code and rare trace materials."
+    },
+    {
+      "Id": "defense_components",
+      "DisplayName": "Defense Components",
+      "BaseMiningDifficulty": 3.2,
+      "BaseValue": 82,
+      "Colour": "#696969",
+      "Description": "Fragments of autonomous weapons, armor plating, and targeting modules. Often unstable."
+    },
+    {
+      "Id": "historic_artifacts",
+      "DisplayName": "Historic Artifacts",
+      "BaseMiningDifficulty": 1.5,
+      "BaseValue": 38,
+      "Colour": "#556B2F",
+      "Description": "Ancient satellite emblems, mission plaques, or early module fragments. Low practical use, high cultural value."
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "recipes": [
+    {
+      "Input": "core_module_field",
+      "Outputs": [
+        {
+          "Resource": "titanium_alloy",
+          "Ratio": 0.4
+        },
+        {
+          "Resource": "electronics_scrap",
+          "Ratio": 0.3
+        },
+        {
+          "Resource": "ceramic_fragment",
+          "Ratio": 0.3
+        }
+      ]
+    }
+  ]
+}

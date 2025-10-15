@@ -1,0 +1,70 @@
+<Window x:Class="TheKesslerRun2.StartupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="The Kessler Run"
+        Height="360"
+        Width="520"
+        ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0"
+                    Margin="0,0,0,12">
+            <TextBlock Text="Welcome to The Kessler Run"
+                       FontSize="18"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="Select a save game to continue or start a new session."
+                       Margin="0,4,0,0" />
+        </StackPanel>
+
+        <ListView Grid.Row="1"
+                  ItemsSource="{Binding Saves}"
+                  SelectedItem="{Binding SelectedSave, Mode=TwoWay}"
+                  Margin="0,0,0,12">
+            <ListView.View>
+                <GridView AllowsColumnReorder="False">
+                    <GridViewColumn Header="Save"
+                                    DisplayMemberBinding="{Binding Name}"
+                                    Width="240" />
+                    <GridViewColumn Header="Last Played"
+                                    Width="200">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding SavedAtUtc, StringFormat={}{0:G}}" />
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+		<StackPanel Grid.Row="2"
+			Orientation="Horizontal"
+			HorizontalAlignment="Right">
+			<Button Content="Refresh"
+				Width="80"
+				Margin="0,0,8,0"
+				Command="{Binding RefreshSavesCommand}" />
+			<Button Content="Save Game"
+				Width="90"
+				Margin="0,0,8,0"
+				Command="{Binding SaveGameCommand}"
+                IsEnabled="{Binding SaveEnabled}" />
+			<Button Content="Load Game"
+				Width="90"
+				Margin="0,0,8,0"
+				Command="{Binding LoadGameCommand}" />
+			<Button Content="New Game"
+				Width="90"
+				Command="{Binding NewGameCommand}" />
+		</StackPanel>
+    </Grid>
+</Window>
+

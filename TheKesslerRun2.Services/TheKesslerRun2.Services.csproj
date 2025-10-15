@@ -1,19 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\TheKesslerRun2.DTOs\TheKesslerRun2.DTOs.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Orbpak\OrbPak.csproj" />
+		<ProjectReference Include="..\TheKesslerRun2.DTOs\TheKesslerRun2.DTOs.csproj" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <None Update="Data\resources.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
+	<ItemGroup>
+		<None Update="Data\resources.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="verify_orbpak.csx">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<Target Name="BuildOrbPak" BeforeTargets="BeforeBuild">
+		<Exec Command="dotnet run --project &quot;$(SolutionDir)OrbPak.Builder\OrbPak.Builder.csproj&quot; &quot;$(ProjectDir)Data\datafiles.txt&quot; &quot;$(ProjectDir)data.orbpak&quot;" />
+		<ItemGroup>
+			<None Include="$(ProjectDir)data.orbpak" Pack="true" Visible="false" />
+		</ItemGroup>
+	</Target>
+
+	<!-- Make sure this artifact is available to projects that reference this library -->
+	<ItemGroup>
+		<Content Include="data.orbpak" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
 
 </Project>

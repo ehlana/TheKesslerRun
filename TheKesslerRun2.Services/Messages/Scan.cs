@@ -1,4 +1,4 @@
-﻿using TheKesslerRun2.DTOs;
+using TheKesslerRun2.DTOs;
 
 namespace TheKesslerRun2.Services.Messages;
 public static class Scan
@@ -8,4 +8,6 @@ public static class Scan
     public record RechargeCompletedMessage;
     public record RequestKnownFieldsMessage;
     public record FieldsKnownMessage(IEnumerable<ResourceFieldDto> Fields);
+    public record FieldUpdatedMessage(ResourceFieldDto Field);
 }
+
