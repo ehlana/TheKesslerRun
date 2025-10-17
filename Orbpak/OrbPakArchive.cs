@@ -1,14 +1,10 @@
-﻿using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.IO.Compression;
-using System.IO.Hashing;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace OrbPak;
+
 public sealed class OrbPakArchive : IDisposable
 {
     private readonly Stream _stream;
@@ -18,203 +14,182 @@ public sealed class OrbPakArchive : IDisposable
 
     public OrbPakArchive(Stream stream, bool leaveOpen = false)
     {
-        this._stream = stream ?? throw new ArgumentNullException(nameof(stream));
-        this._leaveOpen = leaveOpen;
-        // ISSUE: untyped stack allocation
-        Span<byte> span = stackalloc byte[24];
-        this._header = this._stream.Read(span) == 24 ? OrbPakHeader.Read(span) : throw new InvalidDataException("Failed to read ORBPAK header.");
-        this.Options = (OrbPakOptions)this._header.OptionsFlags;
-        this.HashType = (OrbPakHashType)this._header.HashType;
-        this._stream.Position = (long)this._header.IndexOffset;
-        this._index = new List<OrbPakIndexEntry>((int)this._header.FileCount);
-        using (BinaryReader br = new BinaryReader(this._stream, Encoding.UTF8, true))
+        _stream = stream ?? throw new ArgumentNullException(nameof(stream));
+        _leaveOpen = leaveOpen;
+
+        Span<byte> headerBuffer = stackalloc byte[OrbPakSpec.HeaderSize];
+        _stream.ReadExactly(headerBuffer);
+        _header = OrbPakHeader.Read(headerBuffer);
+
+        Options = (OrbPakOptions)_header.OptionsFlags;
+        HashType = (OrbPakHashType)_header.HashType;
+
+        _stream.Position = _header.IndexOffset;
+        _index = new List<OrbPakIndexEntry>(_header.FileCount);
+
+        using var reader = new BinaryReader(_stream, Encoding.UTF8, leaveOpen: true);
+        for (int i = 0; i < _header.FileCount; i++)
         {
-            for (int index = 0; index < (int)this._header.FileCount; ++index)
-                this._index.Add(OrbPakIndexEntry.Read(br, this.HashType));
+            _index.Add(OrbPakIndexEntry.Read(reader, HashType));
         }
     }
 
     public static OrbPakArchive Open(string filePath)
     {
-        return new OrbPakArchive((Stream)new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read));
+        var file = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return new OrbPakArchive(file);
     }
 
-    public static OrbPakArchive Open(Stream stream, bool leaveOpen = false)
-    {
-        return new OrbPakArchive(stream, leaveOpen);
-    }
-
-    public IReadOnlyList<string> Files
-    {
-        get
-        {
-            return (IReadOnlyList<string>)this._index.Select<OrbPakIndexEntry, string>((Func<OrbPakIndexEntry, string>)(e => e.Filename)).ToList<string>();
-        }
-    }
+    public IReadOnlyList<string> Files => _index.Select(e => e.Filename).ToList();
 
     public OrbPakOptions Options { get; }
 
     public OrbPakHashType HashType { get; }
 
-    public ushort SpecVersion => this._header.SpecVersion;
+    public ushort SpecVersion => _header.SpecVersion;
 
     public byte[] ReadStored(string virtualPath)
     {
-        OrbPakIndexEntry orbPakIndexEntry = this.Find(virtualPath);
-        this._stream.Position = (long)orbPakIndexEntry.Offset;
-        return OrbPakArchive.ReadExact(this._stream, (int)orbPakIndexEntry.StoredLength);
+        var entry = Find(virtualPath);
+        _stream.Position = entry.Offset;
+        return ReadExact(_stream, (int)entry.StoredLength);
     }
 
     public byte[] Read(string virtualPath)
     {
-        OrbPakIndexEntry orbPakIndexEntry = this.Find(virtualPath);
-        this._stream.Position = (long)orbPakIndexEntry.Offset;
-        byte[] numArray = OrbPakArchive.ReadExact(this._stream, (int)orbPakIndexEntry.StoredLength);
-        this.VerifyFileHash(numArray, orbPakIndexEntry.Hash);
-        if (this.Options.HasFlag((Enum)OrbPakOptions.Compressed))
+        var entry = Find(virtualPath);
+        _stream.Position = entry.Offset;
+
+        var stored = ReadExact(_stream, (int)entry.StoredLength);
+        VerifyFileHash(stored, entry.Hash);
+
+        if (!Options.HasFlag(OrbPakOptions.Compressed))
         {
-            using (MemoryStream memoryStream = new MemoryStream(numArray))
+            if (stored.Length != entry.Length)
             {
-                using (DeflateStream deflateStream = new DeflateStream((Stream)memoryStream, CompressionMode.Decompress))
-                {
-                    using (MemoryStream destination = new MemoryStream((int)orbPakIndexEntry.Length))
-                    {
-                        deflateStream.CopyTo((Stream)destination);
-                        byte[] array = destination.ToArray();
-                        if (array.Length != (int)orbPakIndexEntry.Length)
-                            throw new InvalidDataException("Length mismatch after decompression for " + orbPakIndexEntry.Filename + ".");
-                        return array;
-                    }
-                }
+                throw new InvalidDataException($"Length mismatch for {entry.Filename}.");
             }
+
+            return stored;
         }
-        else
+
+        using var compressed = new MemoryStream(stored, writable: false);
+        using var inflater = new DeflateStream(compressed, CompressionMode.Decompress, leaveOpen: true);
+        using var destination = new MemoryStream((int)entry.Length);
+        inflater.CopyTo(destination);
+
+        var result = destination.ToArray();
+        if (result.Length != entry.Length)
         {
-            if (numArray.Length != (int)orbPakIndexEntry.Length)
-                throw new InvalidDataException("Length mismatch for " + orbPakIndexEntry.Filename + ".");
-            return numArray;
+            throw new InvalidDataException($"Length mismatch after decompression for {entry.Filename}.");
         }
+
+        return result;
     }
 
     public void VerifyManifest()
     {
-        if (!this.Options.HasFlag((Enum)OrbPakOptions.ManifestHash))
+        if (!Options.HasFlag(OrbPakOptions.ManifestHash))
             throw new InvalidOperationException("Archive has no manifest hash.");
-        if (this.HashType == OrbPakHashType.None)
-            throw new InvalidOperationException("Archive uses no hash type.");
-        if (!this._stream.CanSeek)
-            throw new InvalidOperationException("Stream must be seekable for verification.");
-        long indexOffset = (long)this._header.IndexOffset;
-        long count = (long)(this._header.GlobalHashOffset - this._header.IndexOffset);
-        this._stream.Position = indexOffset;
-        using (HashAlgorithm hashAlgorithm = OrbPakArchive.CreateHashAlgorithm(this.HashType))
+        if (HashType == OrbPakHashType.None)
+            throw new InvalidOperationException("Archive does not use a hash type.");
+        if (!_stream.CanSeek)
+            throw new InvalidOperationException("Stream must support seeking to verify the manifest.");
+
+        long manifestStart = _header.IndexOffset;
+        long manifestLength = _header.GlobalHashOffset - _header.IndexOffset;
+
+        _stream.Position = manifestStart;
+        using var hashAlgorithm = CreateHashAlgorithm(HashType)
+            ?? throw new InvalidOperationException("Hash algorithm is not available.");
+        using (var crypto = new CryptoStream(Stream.Null, hashAlgorithm, CryptoStreamMode.Write))
         {
-            using (CryptoStream dst = new CryptoStream(Stream.Null, (ICryptoTransform)hashAlgorithm, CryptoStreamMode.Write))
-            {
-                OrbPakArchive.CopyRange(this._stream, (Stream)dst, count);
-                dst.FlushFinalBlock();
-            }
-            byte[] hash = hashAlgorithm.Hash;
-            this._stream.Position = (long)this._header.GlobalHashOffset;
-            if (!OrbPakArchive.ReadExact(this._stream, hash.Length).AsSpan<byte>().SequenceEqual<byte>((ReadOnlySpan<byte>)hash))
-                throw new CryptographicException("ORBPAK manifest hash mismatch (archive tampered or corrupted).");
+            CopyRange(_stream, crypto, manifestLength);
+            crypto.FlushFinalBlock();
+        }
+
+        byte[] computed = hashAlgorithm.Hash!;
+        _stream.Position = _header.GlobalHashOffset;
+        byte[] stored = ReadExact(_stream, computed.Length);
+
+        if (!stored.AsSpan().SequenceEqual(computed))
+        {
+            throw new CryptographicException("ORBPAK manifest hash mismatch (archive tampered or corrupted).");
         }
     }
 
     private OrbPakIndexEntry Find(string path)
     {
-        path = path.Replace('\\', '/');
-        return this._index.FirstOrDefault<OrbPakIndexEntry>((Func<OrbPakIndexEntry, bool>)(i => i.Filename.Equals(path, StringComparison.Ordinal))) ?? throw new FileNotFoundException("Entry not found: " + path);
+        var normalised = path.Replace('\\', '/');
+        return _index.FirstOrDefault(entry => entry.Filename.Equals(normalised, StringComparison.Ordinal))
+               ?? throw new FileNotFoundException($"Entry not found: {path}");
     }
 
     private void VerifyFileHash(byte[] stored, byte[] expected)
     {
-        if (this.HashType == OrbPakHashType.None)
-            return;
-        OrbPakHashType hashType = this.HashType;
-        if (true)
-            ;
-        byte[] array;
-        switch (hashType)
+        if (HashType == OrbPakHashType.None)
         {
-            case OrbPakHashType.CRC32:
-                array = BitConverter.GetBytes(Crc32.HashToUInt32((ReadOnlySpan<byte>)stored));
-                break;
-            case OrbPakHashType.SHA1:
-                array = SHA1.HashData(stored);
-                break;
-            case OrbPakHashType.SHA256:
-                array = SHA256.HashData(stored);
-                break;
-            default:
-                throw new NotSupportedException();
+            return;
         }
-        if (true)
-            ;
-        if (!array.AsSpan<byte>().SequenceEqual<byte>((ReadOnlySpan<byte>)expected))
+
+        byte[] actual = HashType switch
+        {
+            OrbPakHashType.CRC32 => BitConverter.GetBytes(Crc32Helper.Compute(stored)),
+            OrbPakHashType.SHA1 => SHA1.HashData(stored),
+            OrbPakHashType.SHA256 => SHA256.HashData(stored),
+            _ => throw new NotSupportedException($"Unknown hash type {HashType}.")
+        };
+
+        if (!actual.AsSpan().SequenceEqual(expected))
+        {
             throw new CryptographicException("ORBPAK entry hash mismatch (file tampered or corrupted).");
+        }
     }
 
-    private static byte[] ReadExact(Stream s, int count)
+    private static byte[] ReadExact(Stream stream, int count)
     {
-        byte[] buffer = new byte[count];
-        int num;
-        for (int offset = 0; offset < count; offset += num)
-        {
-            num = s.Read(buffer, offset, count - offset);
-            if (num <= 0)
-                throw new EndOfStreamException();
-        }
+        var buffer = new byte[count];
+        stream.ReadExactly(buffer);
         return buffer;
     }
 
-    private static HashAlgorithm? CreateHashAlgorithm(OrbPakHashType t)
+    private static HashAlgorithm? CreateHashAlgorithm(OrbPakHashType hashType) => hashType switch
     {
-        if (true)
-            ;
-        HashAlgorithm hashAlgorithm;
-        switch (t)
-        {
-            case OrbPakHashType.SHA1:
-                hashAlgorithm = (HashAlgorithm)SHA1.Create();
-                break;
-            case OrbPakHashType.SHA256:
-                hashAlgorithm = (HashAlgorithm)SHA256.Create();
-                break;
-            default:
-                hashAlgorithm = (HashAlgorithm)null;
-                break;
-        }
-        if (true)
-            ;
-        return hashAlgorithm;
-    }
+        OrbPakHashType.SHA1 => SHA1.Create(),
+        OrbPakHashType.SHA256 => SHA256.Create(),
+        _ => null
+    };
 
-    private static void CopyRange(Stream src, Stream dst, long count)
+    private static void CopyRange(Stream source, Stream destination, long count)
     {
-        byte[] numArray = ArrayPool<byte>.Shared.Rent(65536);
+        var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
         try
         {
-            int count1;
-            for (; count > 0L; count -= (long)count1)
+            while (count > 0)
             {
-                int count2 = (int)Math.Min((long)numArray.Length, count);
-                count1 = src.Read(numArray, 0, count2);
-                if (count1 <= 0)
+                int read = source.Read(buffer, 0, (int)Math.Min(buffer.Length, count));
+                if (read <= 0)
+                {
                     throw new EndOfStreamException();
-                dst.Write(numArray, 0, count1);
+                }
+
+                destination.Write(buffer, 0, read);
+                count -= read;
             }
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(numArray);
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
     public void Dispose()
     {
-        if (this._leaveOpen)
+        if (_leaveOpen)
+        {
             return;
-        this._stream.Dispose();
+        }
+
+        _stream.Dispose();
     }
 }

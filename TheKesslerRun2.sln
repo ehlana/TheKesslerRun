@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrbPak.Test", "OrbPak.Test\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrbPak.Builder", "OrbPak.Builder\OrbPak.Builder.csproj", "{568116A6-F07F-4613-A943-B3C82D66E705}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OrbPak", "OrbPak", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -126,6 +128,11 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{CC782D00-71F1-4776-92F8-E43E2E62131B} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{94D7AECA-852E-4465-8FD6-CFCBD10A8EF9} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{568116A6-F07F-4613-A943-B3C82D66E705} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B3FF47E9-93D5-4387-933E-CDBF6173B427}

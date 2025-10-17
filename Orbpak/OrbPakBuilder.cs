@@ -1,246 +1,200 @@
-﻿using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.IO.Compression;
-using System.IO.Hashing;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace OrbPak;
+
 public sealed class OrbPakBuilder(OrbPakOptions options, OrbPakHashType hashType)
 {
-    private readonly List<OrbPakBuilder.Entry> _entries = [];
+    private readonly List<Entry> _entries = [];
 
     public void AddFile(string virtualPath, byte[] data)
     {
         if (string.IsNullOrWhiteSpace(virtualPath))
-            throw new ArgumentException("virtualPath is required.");
-        if (data == null)
+            throw new ArgumentException("virtualPath is required.", nameof(virtualPath));
+        if (data is null)
             throw new ArgumentNullException(nameof(data));
-        // ISSUE: reference to a compiler-generated field
-        OrbPakBuilder.Entry entry = new OrbPakBuilder.Entry()
-        {
-            Filename = OrbPakBuilder.NormalizePath(virtualPath),
-            Uncompressed = data,
-            Length = (uint)data.Length,
-            Stored = options.HasFlag((Enum)OrbPakOptions.Compressed) ? OrbPakBuilder.Deflate(data) : data
-        };
-        entry.StoredLength = (uint)entry.Stored.Length;
-        // ISSUE: reference to a compiler-generated field
-        entry.Hash = OrbPakBuilder.ComputeHash(entry.Stored, hashType);
-        this._entries.Add(entry);
+
+        var normalized = NormalizePath(virtualPath);
+        var stored = options.HasFlag(OrbPakOptions.Compressed) ? Deflate(data) : data;
+        var hash = ComputeHash(stored, hashType);
+        var entry = new Entry(normalized, (uint)data.Length, stored, hash);
+        _entries.Add(entry);
     }
 
     public void AddFile(string virtualPath, Stream input)
     {
-        using (MemoryStream destination = new MemoryStream())
-        {
-            input.CopyTo((Stream)destination);
-            this.AddFile(virtualPath, destination.ToArray());
-        }
+        if (input is null)
+            throw new ArgumentNullException(nameof(input));
+
+        using var buffer = new MemoryStream();
+        input.CopyTo(buffer);
+        AddFile(virtualPath, buffer.ToArray());
     }
 
     public void Save(Stream output)
     {
-        if (output == null)
+        if (output is null)
             throw new ArgumentNullException(nameof(output));
-        // ISSUE: reference to a compiler-generated field
-        // ISSUE: reference to a compiler-generated field
-        OrbPakHeader orbPakHeader = new OrbPakHeader()
+        if (!output.CanWrite)
+            throw new ArgumentException("Output stream must be writable.", nameof(output));
+
+        int hashLength = GetHashLength(hashType);
+        long indexStart = OrbPakSpec.HeaderSize;
+        long dataOffset = indexStart + (_entries.Count * (OrbPakIndexEntry.FixedSizeWithoutHash + hashLength));
+
+        foreach (var entry in _entries)
         {
-            SpecVersion = 3,
-            FileCount = (ushort)this._entries.Count,
-            IndexOffset = 24,
+            entry.Offset = (uint)dataOffset;
+            dataOffset += entry.Stored.Length;
+        }
+
+        uint manifestOffset = 0;
+        if (options.HasFlag(OrbPakOptions.ManifestHash) && hashType != OrbPakHashType.None)
+        {
+            manifestOffset = (uint)dataOffset;
+            dataOffset += hashLength;
+        }
+
+        var header = new OrbPakHeader
+        {
+            Magic = 0, // overwritten by Write
+            SpecVersion = OrbPakSpec.Version,
+            FileCount = (ushort)_entries.Count,
+            IndexOffset = (uint)indexStart,
             OptionsFlags = (uint)options,
             HashType = (byte)hashType,
-            Reserved0 = 0,
-            Reserved1 = 0,
-            Reserved2 = 0,
-            GlobalHashOffset = 0
+            GlobalHashOffset = manifestOffset
         };
-        // ISSUE: reference to a compiler-generated field
-        OrbPakHashType hashTypeP = hashType;
-        if (true)
-            ;
-        int num1;
-        switch (hashTypeP)
+
+        Span<byte> headerBuffer = stackalloc byte[OrbPakSpec.HeaderSize];
+        header.Write(headerBuffer);
+        output.Write(headerBuffer);
+
+        using (var writer = new BinaryWriter(output, Encoding.UTF8, leaveOpen: true))
         {
-            case OrbPakHashType.None:
-                num1 = 0;
-                break;
-            case OrbPakHashType.CRC32:
-                num1 = 4;
-                break;
-            case OrbPakHashType.SHA1:
-                num1 = 20;
-                break;
-            case OrbPakHashType.SHA256:
-                num1 = 32;
-                break;
-            default:
-                throw new NotSupportedException();
-        }
-        if (true)
-            ;
-        int num2 = num1;
-        long num3 = (long)(24 + (OrbPakIndexEntry.FixedSizeWithoutHash + num2) * this._entries.Count);
-        foreach (OrbPakBuilder.Entry entry in this._entries)
-        {
-            entry.Offset = checked((uint)num3);
-            num3 += (long)entry.Stored.Length;
-        }
-        long num4 = 0;
-        // ISSUE: reference to a compiler-generated field
-        // ISSUE: reference to a compiler-generated field
-        if (options.HasFlag((Enum)OrbPakOptions.ManifestHash) && hashType != 0)
-      {
-            num4 = num3;
-            orbPakHeader.GlobalHashOffset = checked((uint)num4);
-            long num5 = num3 + (long)num2;
-        }
-        // ISSUE: untyped stack allocation
-        Span<byte> span = stackalloc byte[24];
-        orbPakHeader.Write(span);
-        output.Write((ReadOnlySpan<byte>)span);
-        using (BinaryWriter bw = new BinaryWriter(output, Encoding.UTF8, true))
-        {
-            foreach (OrbPakBuilder.Entry entry in this._entries)
+            foreach (var entry in _entries)
             {
-                // ISSUE: reference to a compiler-generated field
-                new OrbPakIndexEntry()
-                {
-                    Filename = entry.Filename,
-                    Offset = entry.Offset,
-                    Length = entry.Length,
-                    StoredLength = entry.StoredLength,
-                    Hash = entry.Hash
-                }.Write(bw, hashType);
+                entry.Write(writer, hashType);
             }
         }
-        foreach (OrbPakBuilder.Entry entry in this._entries)
+
+        foreach (var entry in _entries)
+        {
             output.Write(entry.Stored, 0, entry.Stored.Length);
-        if (num4 <= 0L)
-            return;
-        if (!output.CanSeek)
-            throw new InvalidOperationException("Output stream must be seekable to write manifest.");
-        long indexOffset = (long)orbPakHeader.IndexOffset;
-        long count = num4 - indexOffset;
-        output.Flush();
-        long position = output.Position;
-        output.Position = indexOffset;
-        // ISSUE: reference to a compiler-generated field
-        using (HashAlgorithm hashAlgorithm = OrbPakBuilder.CreateHashAlgorithm(hashType))
-        {
-            using (CryptoStream dst = new CryptoStream(Stream.Null, (ICryptoTransform)hashAlgorithm, CryptoStreamMode.Write))
-            {
-                OrbPakBuilder.CopyRange(output, (Stream)dst, count);
-                dst.FlushFinalBlock();
-            }
-            byte[] hash = hashAlgorithm.Hash;
-            output.Position = num4;
-            output.Write(hash, 0, hash.Length);
-            output.Position = position;
         }
+
+        if (manifestOffset == 0)
+        {
+            return;
+        }
+
+        if (!output.CanSeek)
+            throw new InvalidOperationException("Output stream must be seekable to write the manifest hash.");
+
+        long manifestStart = header.IndexOffset;
+        long manifestLength = manifestOffset - manifestStart;
+
+        output.Flush();
+        long originalPosition = output.Position;
+        output.Position = manifestStart;
+
+        using var hashAlgorithm = CreateHashAlgorithm(hashType)
+            ?? throw new InvalidOperationException("Manifest hash requested but algorithm is unavailable.");
+        using (var crypto = new CryptoStream(Stream.Null, hashAlgorithm, CryptoStreamMode.Write))
+        {
+            CopyRange(output, crypto, manifestLength);
+            crypto.FlushFinalBlock();
+        }
+
+        output.Position = manifestOffset;
+        byte[] manifestHash = hashAlgorithm.Hash!;
+        output.Write(manifestHash, 0, manifestHash.Length);
+        output.Position = originalPosition;
     }
 
     public void Save(string filePath)
     {
-        using (FileStream output = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None))
-            this.Save((Stream)output);
+        using var file = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+        Save(file);
     }
 
-    private static string NormalizePath(string p) => p.Replace('\\', '/');
+    private static string NormalizePath(string path) => path.Replace('\\', '/');
 
     private static byte[] Deflate(byte[] data)
     {
-        using (MemoryStream memoryStream = new MemoryStream())
+        using var output = new MemoryStream();
+        using (var compressor = new DeflateStream(output, CompressionLevel.SmallestSize, leaveOpen: true))
         {
-            using (DeflateStream deflateStream = new DeflateStream((Stream)memoryStream, CompressionLevel.SmallestSize, true))
-                deflateStream.Write(data, 0, data.Length);
-            return memoryStream.ToArray();
+            compressor.Write(data, 0, data.Length);
         }
+
+        return output.ToArray();
     }
 
-    private static HashAlgorithm? CreateHashAlgorithm(OrbPakHashType t)
+    private static HashAlgorithm? CreateHashAlgorithm(OrbPakHashType hashType) => hashType switch
     {
-        if (true)
-            ;
-        HashAlgorithm hashAlgorithm;
-        switch (t)
-        {
-            case OrbPakHashType.SHA1:
-                hashAlgorithm = (HashAlgorithm)SHA1.Create();
-                break;
-            case OrbPakHashType.SHA256:
-                hashAlgorithm = (HashAlgorithm)SHA256.Create();
-                break;
-            default:
-                hashAlgorithm = (HashAlgorithm)null;
-                break;
-        }
-        if (true)
-            ;
-        return hashAlgorithm;
-    }
+        OrbPakHashType.SHA1 => SHA1.Create(),
+        OrbPakHashType.SHA256 => SHA256.Create(),
+        _ => null
+    };
 
-    private static byte[] ComputeHash(byte[] data, OrbPakHashType t)
+    private static byte[] ComputeHash(byte[] data, OrbPakHashType hashType) => hashType switch
     {
-        if (true)
-            ;
-        byte[] hash;
-        switch (t)
-        {
-            case OrbPakHashType.None:
-                hash = Array.Empty<byte>();
-                break;
-            case OrbPakHashType.CRC32:
-                hash = BitConverter.GetBytes(Crc32.HashToUInt32((ReadOnlySpan<byte>)data));
-                break;
-            case OrbPakHashType.SHA1:
-                hash = SHA1.HashData(data);
-                break;
-            case OrbPakHashType.SHA256:
-                hash = SHA256.HashData(data);
-                break;
-            default:
-                throw new NotSupportedException();
-        }
-        if (true)
-            ;
-        return hash;
-    }
+        OrbPakHashType.None => Array.Empty<byte>(),
+        OrbPakHashType.CRC32 => BitConverter.GetBytes(Crc32Helper.Compute(data)),
+        OrbPakHashType.SHA1 => SHA1.HashData(data),
+        OrbPakHashType.SHA256 => SHA256.HashData(data),
+        _ => throw new NotSupportedException($"Unknown hash type '{hashType}'.")
+    };
 
-    private static void CopyRange(Stream src, Stream dst, long count)
+    private static int GetHashLength(OrbPakHashType hashType) => hashType switch
     {
-        byte[] numArray = ArrayPool<byte>.Shared.Rent(65536);
+        OrbPakHashType.None => 0,
+        OrbPakHashType.CRC32 => 4,
+        OrbPakHashType.SHA1 => 20,
+        OrbPakHashType.SHA256 => 32,
+        _ => throw new NotSupportedException($"Unknown hash type '{hashType}'.")
+    };
+
+    private static void CopyRange(Stream source, Stream destination, long count)
+    {
+        var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
         try
         {
-            int count1;
-            for (; count > 0L; count -= (long)count1)
+            while (count > 0)
             {
-                int count2 = (int)Math.Min((long)numArray.Length, count);
-                count1 = src.Read(numArray, 0, count2);
-                if (count1 <= 0)
+                int read = source.Read(buffer, 0, (int)Math.Min(buffer.Length, count));
+                if (read <= 0)
                     throw new EndOfStreamException();
-                dst.Write(numArray, 0, count1);
+
+                destination.Write(buffer, 0, read);
+                count -= read;
             }
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(numArray);
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
-    private sealed class Entry
+    private sealed record Entry(string Filename, uint Length, byte[] Stored, byte[] Hash)
     {
-        public string Filename = "";
-        public byte[] Uncompressed = Array.Empty<byte>();
-        public byte[] Stored = Array.Empty<byte>();
-        public uint Length;
-        public uint StoredLength;
-        public byte[] Hash = Array.Empty<byte>();
-        public uint Offset;
+        public uint Offset { get; set; }
+
+        public void Write(BinaryWriter writer, OrbPakHashType hashType)
+        {
+            var index = new OrbPakIndexEntry
+            {
+                Filename = Filename,
+                Offset = Offset,
+                Length = Length,
+                StoredLength = (uint)Stored.Length,
+                Hash = Hash
+            };
+
+            index.Write(writer, hashType);
+        }
     }
 }
